@@ -1,0 +1,16 @@
+node_modules
+.next
+.env
+.env.local
+.env*.local
+prisma/dev.db
+prisma/dev.db-journal
+prisma/*.db
+prisma/*.db-journal
+storage/**
+!storage/.gitkeep
+coverage
+*.log
+tsconfig.tsbuildinfo
+next-env.d.ts
+.DS_Store

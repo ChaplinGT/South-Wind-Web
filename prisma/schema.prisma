@@ -1,0 +1,212 @@
+// SQLite para desarrollo local.
+// Para Supabase/Postgres cambie provider a "postgresql" (el resto del esquema es compatible).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  role         String
+  companyId    String?
+  company      Company?   @relation(fields: [companyId], references: [id])
+  createdAt    DateTime   @default(now())
+  auditLogs    AuditLog[]
+}
+
+model Company {
+  id               String   @id @default(cuid())
+  legalName        String
+  tradeName        String
+  nit              String   @unique
+  email            String
+  phone            String
+  address          String
+  city             String
+  country          String   @default("BO")
+  clientType       String
+  contactName      String
+  bridgeCustomerId String?  @unique
+  bridgeWalletId   String?
+  walletAddress    String?
+  walletChain      String?
+  kybStatus        String   @default("not_started")
+  bridgeKycStatus  String?
+  kybLinkUrl       String?
+  tosLinkUrl       String?
+  onboardingSource String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  users            User[]
+  beneficiaries    Beneficiary[]
+  virtualAccounts  VirtualAccount[]
+  transfers        Transfer[]
+  conversions      ConversionRequest[]
+  bolivianAccounts BolivianAccount[]
+  ledgerEntries    LedgerEntry[]
+  statements       Statement[]
+}
+
+model BolivianAccount {
+  id            String  @id @default(cuid())
+  companyId     String
+  company       Company @relation(fields: [companyId], references: [id])
+  bankName      String
+  accountNumber String
+  accountHolder String
+  accountType   String
+  isDefault     Boolean @default(true)
+}
+
+model Beneficiary {
+  id                      String   @id @default(cuid())
+  companyId               String
+  company                 Company  @relation(fields: [companyId], references: [id])
+  bridgeExternalAccountId String?
+  nickname                String
+  rail                    String
+  currency                String
+  accountOwnerName        String
+  bankName                String
+  accountLast4            String
+  country                 String
+  status                  String   @default("active")
+  detailsJson             String   @default("{}")
+  createdAt               DateTime @default(now())
+}
+
+model VirtualAccount {
+  id                     String   @id @default(cuid())
+  companyId              String
+  company                Company  @relation(fields: [companyId], references: [id])
+  bridgeVirtualAccountId String?  @unique
+  status                 String
+  currency               String
+  instructionsJson       String
+  createdAt              DateTime @default(now())
+}
+
+model Transfer {
+  id               String    @id @default(cuid())
+  companyId        String
+  company          Company   @relation(fields: [companyId], references: [id])
+  bridgeTransferId String?   @unique
+  idempotencyKey   String    @unique
+  amount           String
+  developerFee     String
+  totalDebit       String
+  currency         String    @default("usd")
+  rail             String
+  beneficiaryId    String?
+  beneficiaryName  String
+  state            String
+  reference        String
+  description      String
+  responseJson     String    @default("{}")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  settledAt        DateTime?
+}
+
+model ConversionRequest {
+  id                String   @id @default(cuid())
+  companyId         String
+  company           Company  @relation(fields: [companyId], references: [id])
+  direction         String
+  amount            String
+  sourceCurrency    String
+  targetCurrency    String
+  bolivianAccountId String?
+  bankSnapshot      String
+  status            String   @default("pendiente")
+  reference         String?
+  receiptFile       String?
+  adminNote         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model LedgerEntry {
+  id           String   @id @default(cuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id])
+  postedAt     DateTime
+  reference    String
+  description  String
+  debit        String   @default("0.00")
+  credit       String   @default("0.00")
+  currency     String   @default("usdc")
+  transferId   String?
+  conversionId String?
+  kind         String
+  createdAt    DateTime @default(now())
+
+  @@index([companyId, postedAt])
+}
+
+model Statement {
+  id               String   @id @default(cuid())
+  companyId        String
+  company          Company  @relation(fields: [companyId], references: [id])
+  statementNumber  String   @unique
+  periodStart      DateTime
+  periodEnd        DateTime
+  openingBalance   String
+  closingBalance   String
+  totalDebits      String
+  totalCredits     String
+  currency         String   @default("usdc")
+  verificationCode String   @unique
+  linesJson        String
+  generatedAt      DateTime @default(now())
+
+  @@index([companyId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  companyId  String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   String   @default("{}")
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  eventId     String   @unique
+  category    String
+  eventType   String
+  payload     String
+  status      String
+  processedAt DateTime @default(now())
+}
+
+model IdempotencyRecord {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  requestHash  String
+  statusCode   Int
+  responseJson String
+  state        String
+  createdAt    DateTime @default(now())
+}
+
+model Setting {
+  key   String @id
+  value String
+}
