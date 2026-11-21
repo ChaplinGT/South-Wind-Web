@@ -1,12 +1,14 @@
-// SQLite para desarrollo local.
-// Para Supabase/Postgres cambie provider a "postgresql" (el resto del esquema es compatible).
+// Postgres (Neon en Vercel, o Docker en local).
+// DATABASE_URL es la URL con pooler. DATABASE_URL_UNPOOLED es la conexión directa
+// que Prisma usa para migraciones (directUrl). En local pueden ser la misma.
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model User {
@@ -128,10 +130,18 @@ model ConversionRequest {
   bankSnapshot      String
   status            String   @default("pendiente")
   reference         String?
-  receiptFile       String?
   adminNote         String?
+  receipt           ConversionReceipt?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model ConversionReceipt {
+  conversionId String            @id
+  conversion   ConversionRequest @relation(fields: [conversionId], references: [id], onDelete: Cascade)
+  fileName     String
+  mime         String
+  data         Bytes
 }
 
 model LedgerEntry {
@@ -209,4 +219,10 @@ model IdempotencyRecord {
 model Setting {
   key   String @id
   value String
+}
+
+/// Estado del cliente Bridge simulado. Una sola fila, compartida entre funciones de Vercel.
+model BridgeMockState {
+  id   String @id
+  json String
 }

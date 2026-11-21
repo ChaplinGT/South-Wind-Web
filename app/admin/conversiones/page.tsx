@@ -8,8 +8,11 @@ export const metadata = { title: "Conversiones" };
 
 export default async function AdminConversionsPage() {
   const conversions = await prisma.conversionRequest.findMany({
-    include: { company: true },
     orderBy: { createdAt: "desc" },
+    include: {
+      company: { select: { legalName: true } },
+      receipt: { select: { fileName: true } },
+    },
   });
   return (
     <div className="space-y-4">
@@ -27,7 +30,7 @@ export default async function AdminConversionsPage() {
             </div>
             <ConversionPill status={item.status} />
           </div>
-          {item.receiptFile ? <a className="mt-2 inline-block text-sm font-semibold text-teal-800" href={`/api/admin/conversiones/${item.id}/archivo`}>Ver comprobante adjunto</a> : null}
+          {item.receipt ? <a className="mt-2 inline-block text-sm font-semibold text-teal-800" href={`/api/admin/conversiones/${item.id}/archivo`}>Ver comprobante adjunto</a> : null}
           <ConversionAdminForm id={item.id} status={item.status} />
         </article>
       ))}

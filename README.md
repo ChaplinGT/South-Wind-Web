@@ -35,18 +35,21 @@ Para reemplazar la marca, conserve los nombres de archivo.
 
 ## Correr en local
 
-Requiere Node 20 o superior.
+Requiere Node 20 o superior y Postgres.
+
+Con Docker:
 
 ```bash
+docker compose up -d
 cp .env.example .env
 npm install
 npm run db:setup
 npm run dev
 ```
 
-Abra http://localhost:3000.
+`DATABASE_URL` y `DATABASE_URL_UNPOOLED` apuntan, en local, a la misma base (`postgresql://southwind:southwind@localhost:5432/southwind`). `npm run db:setup` aplica las migraciones y siembra la demo. `npm run db:seed` se puede repetir: no borra empresas que ya existen.
 
-`npm run db:setup` crea la base SQLite (`prisma/dev.db`) y carga datos de demostración. Volver a ejecutar `npm run db:seed` **borra** esos datos y los recrea.
+Sin Docker, una rama gratis de [Neon](https://neon.tech) sirve igual. Copie la URL con pooler a `DATABASE_URL` y la URL directa a `DATABASE_URL_UNPOOLED`.
 
 ### Accesos de demostración
 
@@ -72,18 +75,21 @@ Vea `.env.example`. Ninguna clave debe commitearse. `BRIDGE_API_KEY` solo se lee
 
 | Variable | Para qué sirve |
 | --- | --- |
-| `DATABASE_URL` | SQLite local (`file:./dev.db`) o Postgres |
-| `BRIDGE_API_KEY` | Clave de sandbox o de producción |
+| `DATABASE_URL` | Postgres de runtime. En Neon, la URL con pooler |
+| `DATABASE_URL_UNPOOLED` | Postgres directo, para `prisma migrate deploy` |
+| `BRIDGE_API_KEY` | Clave de sandbox o de producción. Si falta, el portal queda simulado |
 | `BRIDGE_API_BASE_URL` | Por defecto `https://api.sandbox.bridge.xyz/v0` |
-| `BRIDGE_MOCK` | `true` usa fixtures locales. `false` llama a Bridge |
+| `BRIDGE_MOCK` | Con clave y `false`, llama a Bridge. Sin clave, siempre simula |
 | `BRIDGE_WEBHOOK_PUBLIC_KEY` | PEM público que devuelve Bridge al crear el webhook |
 | `AUTH_SECRET` | Firma de la cookie de sesión. Cámbielo |
-| `APP_URL` | URL pública, para verificación de extractos y el KYB simulado |
+| `APP_URL` | URL pública de los QR y del KYB. Alias aceptado: `NEXTAUTH_URL` |
+| `ADMIN_EMAIL` | Opcional. Correo del admin que crea `npm run db:seed` |
+| `ADMIN_PASSWORD` | Opcional. Si está, el seed la aplica y no usa la clave de demo |
 | `SOUTH_WIND_FEE_PERCENT` | Comisión inicial si todavía no hay valor guardado. El panel la puede cambiar |
 
 ## Modo simulado
 
-Con `BRIDGE_MOCK` distinto de `false` (es el valor de `.env.example`) el servidor no llama a Bridge. Los clientes, billeteras, cuentas virtuales, cuentas externas y transferencias siguen la forma documentada del API (`count` + `data`, `status`, `endorsements`, `source_deposit_instructions`, `developer_fee`, estados de transferencia). Los POST respetan `Idempotency-Key`.
+Sin `BRIDGE_API_KEY`, o con `BRIDGE_MOCK` distinto de `false`, el servidor no llama a Bridge. Los clientes, billeteras, cuentas virtuales, cuentas externas y transferencias siguen la forma documentada del API (`count` + `data`, `status`, `endorsements`, `source_deposit_instructions`, `developer_fee`, estados de transferencia). Los POST respetan `Idempotency-Key`.
 
 La verificación de una empresa nueva abre `/sandbox/kyb/...` en lugar del enlace real. El depósito de prueba de la cuenta virtual usa el mismo concepto que `simulate_deposit` del sandbox.
 
@@ -118,20 +124,46 @@ Producción, cuando corresponda, cambia la base a `https://api.bridge.xyz/v0` y 
 npm run dev          # servidor local
 npm test             # cliente de Bridge, firma, extracto, comisión y validación
 npm run bridge:check # GET /customers, solo conteos y estados
-npm run db:setup     # crear tablas y sembrar la demo
-npm run build        # compilación de producción
+npm run db:setup     # migraciones + demo (idempotente)
+npm run db:seed      # solo la demo, contra la DATABASE_URL actual
+npm run build        # prisma generate + next build
 ```
 
-## Despliegue (Vercel + Supabase)
+En Vercel el comando de build es `npm run vercel-build` (`prisma generate`, `prisma migrate deploy`, `next build`). El proyecto lo detecta solo si existe el script `vercel-build`.
 
-1. Cree un proyecto de Supabase y copie la URI de Postgres.
-2. En `prisma/schema.prisma` cambie `provider = "sqlite"` por `provider = "postgresql"`. El resto del esquema usa textos y fechas, así que no hay que reescribir modelos. Si usa el pooler, deje `DATABASE_URL` con el pooler y agregue `directUrl` para migraciones, como indica Prisma.
-3. En la máquina de despliegue: `npx prisma db push` (o migraciones) y, si quiere la demo, `npm run db:seed`. En producción real no siembre las empresas de ejemplo.
-4. En Vercel configure las mismas variables del `.env`. `BRIDGE_API_KEY`, `AUTH_SECRET` y `BRIDGE_WEBHOOK_PUBLIC_KEY` son secretos de servidor.
-5. `APP_URL` debe ser la URL pública (`https://…`) para que el QR del extracto apunte al portal.
-6. SQLite no sirve en las funciones de Vercel. Producción usa Postgres.
+## Despliegue en Vercel (plan Hobby, modo de prueba)
 
-Los archivos de `storage/` (comprobantes subidos y el estado simulado) viven en el disco local. En Vercel hay que moverlos a un bucket; no está hecho en este MVP.
+1. Importe el repositorio en Vercel. Framework: Next.js. El build usa `vercel-build`.
+2. En Storage, agregue Postgres de Neon por el Marketplace. Eso inyecta `DATABASE_URL` (pooler) y `DATABASE_URL_UNPOOLED` (directa). Prisma lee exactamente esos dos nombres. Si en cambio ve `POSTGRES_URL` y `POSTGRES_URL_NON_POOLING`, copie la URL con pooler a `DATABASE_URL` y la directa a `DATABASE_URL_UNPOOLED`.
+3. Variables que hay que definir a mano:
+
+   | Variable | Valor en la prueba |
+   | --- | --- |
+   | `AUTH_SECRET` | cadena larga aleatoria |
+   | `APP_URL` | `https://<proyecto>.vercel.app` y, después, `https://portal.southwindglobalservices.com` |
+   | `BRIDGE_API_BASE_URL` | `https://api.sandbox.bridge.xyz/v0` |
+   | `BRIDGE_MOCK` | `true` mientras no haya clave. `false` solo junto con `BRIDGE_API_KEY` |
+   | `BRIDGE_API_KEY` | vacía para simular, o la clave de sandbox |
+   | `BRIDGE_WEBHOOK_PUBLIC_KEY` | PEM, cuando cree el webhook |
+   | `ADMIN_EMAIL` | correo real del administrador |
+   | `ADMIN_PASSWORD` | clave que no sea la de demostración |
+   | `SOUTH_WIND_FEE_PERCENT` | `0.50` |
+
+   `DATABASE_URL` y `DATABASE_URL_UNPOOLED` las pone Neon. No las marque como solo de runtime: `migrate deploy` corre durante el build.
+
+4. Despliegue. Las migraciones corren solas. La base queda vacía hasta el seed.
+5. En su máquina, con las URLs de esa base (por ejemplo `vercel env pull .env.production.local`):
+
+   ```bash
+   set -a && source .env.production.local && set +a
+   npm run db:seed
+   ```
+
+   Crea el admin (`ADMIN_EMAIL` / `ADMIN_PASSWORD` si están definidos; si no, `admin@southwind.example` y `VientoSur-2026`) y las cuatro empresas de demostración. Una segunda ejecución no las duplica. Si `ADMIN_PASSWORD` está definida, cada seed actualiza esa clave y no la imprime.
+
+Los PDF se generan en la función al pedirlos. El logo y las fuentes DejaVu van dentro del despliegue. Los comprobantes de conversión se guardan en Postgres, no en disco. El estado simulado de Bridge también vive en la base, así que sobrevive entre invocaciones.
+
+## Qué falta para producción
 
 ## Qué falta para producción
 
@@ -142,8 +174,8 @@ Los archivos de `storage/` (comprobantes subidos y el estado simulado) viven en 
 - Requisitos de la UIF y del PSAV para la pata en bolivianos. Esa conversión sigue siendo manual: este portal solo registra la solicitud, el estado y el comprobante.
 - Clave, webhook y clientes del entorno de producción de Bridge, separados del sandbox.
 - Correo de invitación, segundo factor, respaldos y una revisión de seguridad.
-- Retención de comprobantes fuera del disco de la instancia.
-- Quitar la marca de agua de demostración: desaparece sola cuando `BRIDGE_MOCK=false`.
+- Dominio `portal.southwindglobalservices.com` en `APP_URL`.
+- Quitar la marca de agua de demostración: desaparece cuando hay clave de Bridge y `BRIDGE_MOCK=false`.
 
 ## Notas de integración
 

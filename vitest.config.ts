@@ -6,7 +6,8 @@ export default defineConfig({
     environment: "node",
     include: ["tests/**/*.test.ts"],
     env: {
-      DATABASE_URL: "file:./dev.db",
+      DATABASE_URL: "postgresql://southwind:southwind@localhost:5432/southwind",
+      DATABASE_URL_UNPOOLED: "postgresql://southwind:southwind@localhost:5432/southwind",
       AUTH_SECRET: "test-secret-test-secret-test-secret",
       BRIDGE_MOCK: "true",
       APP_URL: "http://localhost:3000",

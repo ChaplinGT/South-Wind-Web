@@ -1,5 +1,3 @@
-import fs from "fs";
-import path from "path";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { DEMO_PASSWORD, DEMO_STATEMENT, demoCompanies, type DemoCompany } from "../lib/demo-data";
@@ -34,33 +32,38 @@ function instructions(company: DemoCompany) {
 }
 
 async function main() {
-  fs.rmSync(path.join(process.cwd(), "storage", "bridge-mock.json"), { force: true });
-  await prisma.webhookEvent.deleteMany();
-  await prisma.idempotencyRecord.deleteMany();
-  await prisma.auditLog.deleteMany();
-  await prisma.statement.deleteMany();
-  await prisma.ledgerEntry.deleteMany();
-  await prisma.transfer.deleteMany();
-  await prisma.conversionRequest.deleteMany();
-  await prisma.virtualAccount.deleteMany();
-  await prisma.beneficiary.deleteMany();
-  await prisma.bolivianAccount.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.company.deleteMany();
-  await prisma.setting.deleteMany();
-
-  await prisma.setting.create({ data: { key: "feePercent", value: process.env.SOUTH_WIND_FEE_PERCENT || "0.50" } });
-  const passwordHash = bcrypt.hashSync(DEMO_PASSWORD, 10);
-  const admin = await prisma.user.create({
-    data: {
-      email: "admin@southwind.example",
-      passwordHash,
-      name: "Equipo South Wind",
-      role: "admin",
-    },
+  await prisma.setting.upsert({
+    where: { key: "feePercent" },
+    update: {},
+    create: { key: "feePercent", value: process.env.SOUTH_WIND_FEE_PERCENT || "0.50" },
   });
 
+  const adminEmail = (process.env.ADMIN_EMAIL || "admin@southwind.example").toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD || DEMO_PASSWORD;
+  const clientPasswordHash = bcrypt.hashSync(DEMO_PASSWORD, 10);
+  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+  const admin = existingAdmin
+    ? process.env.ADMIN_PASSWORD
+      ? await prisma.user.update({
+          where: { id: existingAdmin.id },
+          data: { passwordHash: bcrypt.hashSync(process.env.ADMIN_PASSWORD, 10), role: "admin", companyId: null },
+        })
+      : existingAdmin
+    : await prisma.user.create({
+        data: {
+          email: adminEmail,
+          passwordHash: bcrypt.hashSync(adminPassword, 10),
+          name: "Equipo South Wind",
+          role: "admin",
+        },
+      });
+
   for (const company of demoCompanies) {
+    const already = await prisma.company.findUnique({ where: { nit: company.nit } });
+    if (already) {
+      console.log(`Ya existe ${company.legalName}; no se duplica.`);
+      continue;
+    }
     const row = await prisma.company.create({
       data: {
         legalName: company.legalName,
@@ -84,7 +87,7 @@ async function main() {
     await prisma.user.create({
       data: {
         email: company.email,
-        passwordHash,
+        passwordHash: clientPasswordHash,
         name: company.contactName,
         role: "client",
         companyId: row.id,
@@ -190,18 +193,26 @@ async function main() {
     statementNumber: DEMO_STATEMENT.number,
     verification: DEMO_STATEMENT.verificationCode,
   });
-  await prisma.auditLog.create({
-    data: {
-      actorId: admin.id,
-      action: "fee.update",
-      entityType: "setting",
-      entityId: "feePercent",
-      metadata: JSON.stringify({ feePercent: "0.50", note: "Valor de referencia del MVP" }),
-    },
-  });
+  const feeAudit = await prisma.auditLog.findFirst({ where: { action: "fee.update", entityId: "feePercent" } });
+  if (!feeAudit) {
+    await prisma.auditLog.create({
+      data: {
+        actorId: admin.id,
+        action: "fee.update",
+        entityType: "setting",
+        entityId: "feePercent",
+        metadata: JSON.stringify({ feePercent: "0.50", note: "Valor de referencia del MVP" }),
+      },
+    });
+  }
   console.log("Datos de demostración listos.");
-  console.log(`Admin: admin@southwind.example / ${DEMO_PASSWORD}`);
-  console.log(`Cliente: maria.quispe@importadora-andina.example / ${DEMO_PASSWORD}`);
+  console.log(`Admin: ${adminEmail}`);
+  if (process.env.ADMIN_PASSWORD) {
+    console.log("La contraseña de admin se tomó de ADMIN_PASSWORD y no se imprime.");
+  } else {
+    console.log(`Contraseña de demostración (admin y clientes): ${DEMO_PASSWORD}`);
+  }
+  console.log("Cliente: maria.quispe@importadora-andina.example");
 }
 
 main()

@@ -1,5 +1,5 @@
 import { createHash, createSign, generateKeyPairSync } from "crypto";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { BridgeHttpClient } from "@/lib/bridge/http";
 import { MockBridge } from "@/lib/bridge/mock";
 import { summarizeCustomers, verifyBridgeSignature } from "@/lib/bridge/webhook";
@@ -8,7 +8,39 @@ import { feeAmount } from "@/lib/money";
 import { periodBounds } from "@/lib/format";
 import { compileStatement } from "@/lib/statements/build";
 import { renderStatementPdf } from "@/lib/statements/pdf";
+import { appUrl, isMockMode } from "@/lib/env";
 import { registerSchema } from "@/lib/validation";
+
+describe("entorno", () => {
+  const snapshot = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...snapshot };
+  });
+
+  it("simula si no hay clave, aunque BRIDGE_MOCK sea false", () => {
+    delete process.env.BRIDGE_API_KEY;
+    process.env.BRIDGE_MOCK = "false";
+    expect(isMockMode()).toBe(true);
+    process.env.BRIDGE_API_KEY = "sk-test-demo";
+    process.env.BRIDGE_MOCK = "false";
+    expect(isMockMode()).toBe(false);
+    process.env.BRIDGE_MOCK = "true";
+    expect(isMockMode()).toBe(true);
+  });
+
+  it("arma la URL pública con APP_URL y, si falta, con VERCEL_URL", () => {
+    process.env.APP_URL = "https://portal.southwindglobalservices.com/";
+    delete process.env.NEXTAUTH_URL;
+    expect(appUrl()).toBe("https://portal.southwindglobalservices.com");
+    delete process.env.APP_URL;
+    process.env.NEXTAUTH_URL = "https://alias.example";
+    expect(appUrl()).toBe("https://alias.example");
+    delete process.env.NEXTAUTH_URL;
+    process.env.VERCEL_URL = "south-wind-web.vercel.app";
+    expect(appUrl()).toBe("https://south-wind-web.vercel.app");
+  });
+});
 
 describe("cliente HTTP de Bridge", () => {
   it("manda Api-Key e Idempotency-Key en POST y no revela la clave", async () => {

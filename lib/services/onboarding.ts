@@ -100,7 +100,7 @@ export async function approveMockKyb(bridgeCustomerId: string, actorId: string) 
   }
   const company = await prisma.company.findUnique({ where: { bridgeCustomerId } });
   if (!company) throw new AppError("No encontramos la empresa de esta verificación.", 404);
-  getMockBridge().markCustomerActive(bridgeCustomerId);
+  await getMockBridge().markCustomerActive(bridgeCustomerId);
   await prisma.company.update({
     where: { id: company.id },
     data: { kybStatus: "approved", bridgeKycStatus: "active" },

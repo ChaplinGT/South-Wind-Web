@@ -1,6 +1,5 @@
 import { randomUUID } from "crypto";
-import fs from "fs";
-import path from "path";
+import { prisma } from "../db";
 import { demoCompanies, endingBalance, unlinkedBridgeCustomer } from "../demo-data";
 import { appUrl } from "../env";
 import { add, sub } from "../money";
@@ -236,26 +235,37 @@ function last4Of(value: unknown): string {
 
 export class MockBridge implements BridgeClient {
   private store: Store;
+  private hydrated = false;
+  private hydrating: Promise<void> | null = null;
 
-  constructor(private readonly options: { persistPath?: string } = {}) {
-    this.store = this.options.persistPath ? this.load() : initialStore();
+  constructor(private readonly options: { persist?: boolean } = {}) {
+    this.store = initialStore();
   }
 
-  private load(): Store {
-    try {
-      if (this.options.persistPath && fs.existsSync(this.options.persistPath)) {
-        return JSON.parse(fs.readFileSync(this.options.persistPath, "utf8")) as Store;
-      }
-    } catch {
-      /* se regenera el fixture */
+  private async hydrate() {
+    if (!this.options.persist || this.hydrated) return;
+    if (!this.hydrating) {
+      this.hydrating = (async () => {
+        try {
+          const row = await prisma.bridgeMockState.findUnique({ where: { id: "default" } });
+          if (row?.json) this.store = JSON.parse(row.json) as Store;
+        } catch {
+          /* la tabla puede no existir todavía; se usan los fixtures */
+        }
+        this.hydrated = true;
+      })();
     }
-    return initialStore();
+    await this.hydrating;
   }
 
-  private save() {
-    if (!this.options.persistPath) return;
-    fs.mkdirSync(path.dirname(this.options.persistPath), { recursive: true });
-    fs.writeFileSync(this.options.persistPath, JSON.stringify(this.store));
+  private async save() {
+    if (!this.options.persist) return;
+    const json = JSON.stringify(this.store);
+    await prisma.bridgeMockState.upsert({
+      where: { id: "default" },
+      update: { json },
+      create: { id: "default", json },
+    });
   }
 
   private remember(key: string, hash: string, body: unknown) {
@@ -269,24 +279,27 @@ export class MockBridge implements BridgeClient {
     return null;
   }
 
-  private storeIdempotency(key: string, hash: string, body: unknown) {
+  private async storeIdempotency(key: string, hash: string, body: unknown) {
     this.store.idempotency[key] = { hash, body };
-    this.save();
+    await this.save();
     return body;
   }
 
-  listCustomers(params?: { limit?: number }) {
+  async listCustomers(params?: { limit?: number }) {
+    await this.hydrate();
     const data = this.store.customers.slice(0, params?.limit ?? this.store.customers.length);
-    return Promise.resolve({ count: data.length, data });
+    return { count: data.length, data };
   }
 
   async getCustomer(id: string) {
+    await this.hydrate();
     const found = this.store.customers.find((item) => item.id === id);
     if (!found) throw new BridgeError("Bridge no encontró el cliente.", 404);
     return found;
   }
 
   async createCustomer(input: Record<string, unknown>, idempotencyKey: string) {
+    await this.hydrate();
     const hash = JSON.stringify(input);
     const replay = this.remember(idempotencyKey, hash, null);
     if (replay) return replay as BridgeCustomer;
@@ -304,7 +317,7 @@ export class MockBridge implements BridgeClient {
     created.created_at = now;
     created.updated_at = now;
     this.store.customers.push(created);
-    return this.storeIdempotency(idempotencyKey, hash, created) as BridgeCustomer;
+    return (await this.storeIdempotency(idempotencyKey, hash, created)) as BridgeCustomer;
   }
 
   async getKycLink(customerId: string): Promise<KycLink> {
@@ -317,9 +330,10 @@ export class MockBridge implements BridgeClient {
     };
   }
 
-  listExternalAccounts(customerId: string) {
+  async listExternalAccounts(customerId: string) {
+    await this.hydrate();
     const data = this.store.externalAccounts.filter((item) => item.customer_id === customerId);
-    return Promise.resolve({ count: data.length, data });
+    return { count: data.length, data };
   }
 
   async createExternalAccount(customerId: string, input: Record<string, unknown>, idempotencyKey: string) {
@@ -346,12 +360,13 @@ export class MockBridge implements BridgeClient {
       updated_at: now,
     };
     this.store.externalAccounts.push(created);
-    return this.storeIdempotency(idempotencyKey, hash, created) as BridgeExternalAccount;
+    return (await this.storeIdempotency(idempotencyKey, hash, created)) as BridgeExternalAccount;
   }
 
-  listVirtualAccounts(customerId: string) {
+  async listVirtualAccounts(customerId: string) {
+    await this.hydrate();
     const data = this.store.virtualAccounts.filter((item) => item.customer_id === customerId);
-    return Promise.resolve({ count: data.length, data });
+    return { count: data.length, data };
   }
 
   async createVirtualAccount(customerId: string, input: Record<string, unknown>, idempotencyKey: string) {
@@ -373,12 +388,13 @@ export class MockBridge implements BridgeClient {
     });
     created.developer_fee_percent = String(input.developer_fee_percent ?? "0.50");
     this.store.virtualAccounts.push(created);
-    return this.storeIdempotency(idempotencyKey, hash, created) as BridgeVirtualAccount;
+    return (await this.storeIdempotency(idempotencyKey, hash, created)) as BridgeVirtualAccount;
   }
 
-  listWallets(customerId: string) {
+  async listWallets(customerId: string) {
+    await this.hydrate();
     const data = this.store.wallets.filter((item) => item.customer_id === customerId);
-    return Promise.resolve({ count: data.length, data });
+    return { count: data.length, data };
   }
 
   async createWallet(customerId: string, input: Record<string, unknown>, idempotencyKey: string) {
@@ -395,20 +411,23 @@ export class MockBridge implements BridgeClient {
       balances: [{ balance: "0.00", currency: "usdc", chain: String(input.chain || "base") }],
     };
     this.store.wallets.push(created);
-    return this.storeIdempotency(idempotencyKey, hash, created) as BridgeWallet;
+    return (await this.storeIdempotency(idempotencyKey, hash, created)) as BridgeWallet;
   }
 
-  listTransfers() {
-    return Promise.resolve({ count: this.store.transfers.length, data: this.store.transfers });
+  async listTransfers() {
+    await this.hydrate();
+    return { count: this.store.transfers.length, data: this.store.transfers };
   }
 
   async getTransfer(id: string) {
+    await this.hydrate();
     const found = this.store.transfers.find((item) => item.id === id);
     if (!found) throw new BridgeError("Bridge no encontró la transferencia.", 404);
     return found;
   }
 
   async createTransfer(input: Record<string, unknown>, idempotencyKey: string) {
+    await this.hydrate();
     const hash = JSON.stringify(input);
     const replay = this.remember(idempotencyKey, hash, null);
     if (replay) return replay as BridgeTransfer;
@@ -439,18 +458,20 @@ export class MockBridge implements BridgeClient {
       createdAt: now,
     });
     this.store.transfers.unshift(created);
-    return this.storeIdempotency(idempotencyKey, hash, created) as BridgeTransfer;
+    return (await this.storeIdempotency(idempotencyKey, hash, created)) as BridgeTransfer;
   }
 
-  adjustUsdc(customerId: string, delta: string) {
+  async adjustUsdc(customerId: string, delta: string) {
+    await this.hydrate();
     const wallet = this.store.wallets.find((item) => item.customer_id === customerId);
     const balance = wallet?.balances.find((item) => item.currency === "usdc");
     if (!balance) return;
     balance.balance = add(balance.balance, delta);
-    this.save();
+    await this.save();
   }
 
-  markCustomerActive(id: string) {
+  async markCustomerActive(id: string) {
+    await this.hydrate();
     const found = this.store.customers.find((item) => item.id === id);
     if (!found) throw new BridgeError("Bridge no encontró el cliente.", 404);
     found.status = "active";
@@ -467,11 +488,12 @@ export class MockBridge implements BridgeClient {
       payin_fiat: "active",
       payout_fiat: "active",
     };
-    this.save();
+    await this.save();
     return found;
   }
 
   async simulateDeposit(customerId: string, virtualAccountId: string, input: { amount: string }, idempotencyKey: string) {
+    await this.hydrate();
     const hash = JSON.stringify({ customerId, virtualAccountId, ...input });
     const replay = this.remember(idempotencyKey, hash, null);
     if (replay) return replay as Record<string, unknown>;
@@ -491,7 +513,7 @@ export class MockBridge implements BridgeClient {
       virtual_account_id: virtualAccountId,
       created_at: new Date().toISOString(),
     };
-    return this.storeIdempotency(idempotencyKey, hash, event) as Record<string, unknown>;
+    return (await this.storeIdempotency(idempotencyKey, hash, event)) as Record<string, unknown>;
   }
 }
 
@@ -499,7 +521,7 @@ let singleton: MockBridge | null = null;
 
 export function getMockBridge(): MockBridge {
   if (!singleton) {
-    singleton = new MockBridge({ persistPath: path.join(process.cwd(), "storage", "bridge-mock.json") });
+    singleton = new MockBridge({ persist: true });
   }
   return singleton;
 }

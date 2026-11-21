@@ -1,5 +1,3 @@
-import fs from "fs";
-import path from "path";
 import { NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/db";
@@ -12,13 +10,14 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   try {
     await requireAdmin();
     const { id } = await context.params;
-    const conversion = await prisma.conversionRequest.findUnique({ where: { id } });
-    if (!conversion?.receiptFile) throw new AppError("Esta solicitud no tiene un comprobante adjunto.", 404);
-    const filePath = path.join(process.cwd(), "storage", "receipts", path.basename(conversion.receiptFile));
-    if (!fs.existsSync(filePath)) throw new AppError("No encontramos el archivo del comprobante.", 404);
-    const body = fs.readFileSync(filePath);
-    const type = filePath.endsWith(".pdf") ? "application/pdf" : filePath.endsWith(".png") ? "image/png" : "image/jpeg";
-    return new NextResponse(new Uint8Array(body), { headers: { "Content-Type": type } });
+    const receipt = await prisma.conversionReceipt.findUnique({ where: { conversionId: id } });
+    if (!receipt) throw new AppError("Esta solicitud no tiene un comprobante adjunto.", 404);
+    return new NextResponse(new Uint8Array(receipt.data), {
+      headers: {
+        "Content-Type": receipt.mime,
+        "Content-Disposition": `inline; filename="${receipt.fileName.replace(/"/g, "")}"`,
+      },
+    });
   } catch (error) {
     return apiError(error);
   }

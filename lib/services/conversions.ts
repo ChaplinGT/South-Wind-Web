@@ -72,7 +72,6 @@ export async function updateConversion(input: {
   reference?: string;
   adminNote?: string;
   settledAmount?: string;
-  receiptFile?: string | null;
   ip?: string | null;
 }) {
   const conversion = await prisma.conversionRequest.findUnique({ where: { id: input.id } });
@@ -97,7 +96,6 @@ export async function updateConversion(input: {
       status: input.status,
       reference: input.reference || conversion.reference,
       adminNote: input.adminNote ?? conversion.adminNote,
-      receiptFile: input.receiptFile ?? conversion.receiptFile,
     },
   });
   if (input.status === "pagado" && !wasPaid) {
@@ -126,7 +124,7 @@ export async function updateConversion(input: {
         const company = await prisma.company.findUnique({ where: { id: updated.companyId } });
         if (company?.bridgeCustomerId) {
           const delta = outgoing ? sub("0.00", updated.amount) : creditAmount;
-          getMockBridge().adjustUsdc(company.bridgeCustomerId, delta);
+          await getMockBridge().adjustUsdc(company.bridgeCustomerId, delta);
         }
       }
     }
