@@ -150,7 +150,7 @@ En Vercel el comando de build es `npm run vercel-build`: `prisma generate`, `pri
    | `SOUTH_WIND_FEE_PERCENT` | `0.50` |
    | `SEED_ON_BUILD` | `true` en el deploy que debe sembrar; `false` después |
 
-   `DATABASE_URL` y `DATABASE_URL_UNPOOLED` las pone Neon. No las marque como solo de runtime: `migrate deploy` y, si el flag está activo, el seed corren durante el build y leen esas variables ahí. El seed no imprime la contraseña.
+   `DATABASE_URL` y `DATABASE_URL_UNPOOLED` las pone Neon. No las marque como solo de runtime: `migrate deploy` y, si el flag está activo, el seed corren durante el build y leen esas variables ahí. El seed no imprime contraseñas. Si `ADMIN_EMAIL` no es un correo, el build falla y no escribe ese valor. Después de crear el admin vigente, desactiva cualquier otro usuario con rol admin; si ese correo no es válido y no tiene auditoría asociada, lo elimina.
 
 4. Despliegue con `SEED_ON_BUILD=true`. Las migraciones corren y después el seed idempotente crea el admin (`ADMIN_EMAIL` / `ADMIN_PASSWORD`) y las cuatro empresas de demostración. Un segundo build con el flag sigue sin duplicarlas. Luego puede poner `SEED_ON_BUILD=false` para que los builds siguientes solo migren.
 5. `/login` redirige a `/ingresar`.

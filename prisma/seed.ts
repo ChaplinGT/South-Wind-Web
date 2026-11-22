@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
-import { staleAdminEmail } from "../lib/admin-seed";
+import { isValidEmail, otherAdminAction, resolveAdminEmail } from "../lib/admin-seed";
 import { DEMO_PASSWORD, DEMO_STATEMENT, demoCompanies, type DemoCompany } from "../lib/demo-data";
 import { rails } from "../lib/rails";
 import { generateStatement } from "../lib/services/statements";
@@ -39,7 +39,7 @@ async function main() {
     create: { key: "feePercent", value: process.env.SOUTH_WIND_FEE_PERCENT || "0.50" },
   });
 
-  const adminEmail = (process.env.ADMIN_EMAIL || "admin@southwind.example").toLowerCase();
+  const adminEmail = resolveAdminEmail(process.env.ADMIN_EMAIL);
   const adminPassword = process.env.ADMIN_PASSWORD || DEMO_PASSWORD;
   const clientPasswordHash = bcrypt.hashSync(DEMO_PASSWORD, 10);
   const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
@@ -65,12 +65,32 @@ async function main() {
         },
       });
 
-  const staleEmail = staleAdminEmail(adminEmail);
-  if (staleEmail) {
-    const stale = await prisma.user.findUnique({ where: { email: staleEmail } });
-    if (stale?.active) {
-      await prisma.user.update({ where: { id: stale.id }, data: { active: false } });
-      console.log(`Cuenta desactivada: ${staleEmail}`);
+  const otherAdmins = await prisma.user.findMany({
+    where: { role: "admin", email: { not: adminEmail } },
+    select: { id: true, email: true, active: true },
+  });
+  for (const other of otherAdmins) {
+    const references = await prisma.auditLog.count({ where: { actorId: other.id } });
+    const action = otherAdminAction(other.email, references > 0);
+    if (action === "delete") {
+      try {
+        await prisma.user.delete({ where: { id: other.id } });
+        console.log("Se eliminó un admin cuyo correo no es una dirección válida.");
+        continue;
+      } catch {
+        if (other.active) {
+          await prisma.user.update({ where: { id: other.id }, data: { active: false } });
+        }
+        console.log("No se pudo eliminar un admin con correo inválido; quedó desactivado. El correo no se imprime.");
+        continue;
+      }
+    }
+    if (!other.active) continue;
+    await prisma.user.update({ where: { id: other.id }, data: { active: false } });
+    if (isValidEmail(other.email)) {
+      console.log(`Cuenta de admin desactivada: ${other.email}`);
+    } else {
+      console.log("Un admin con correo inválido quedó desactivado. El correo no se imprime.");
     }
   }
 

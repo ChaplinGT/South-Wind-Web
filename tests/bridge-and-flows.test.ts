@@ -9,7 +9,7 @@ import { feeAmount } from "@/lib/money";
 import { periodBounds } from "@/lib/format";
 import { compileStatement } from "@/lib/statements/build";
 import { renderStatementPdf } from "@/lib/statements/pdf";
-import { STALE_ADMIN_EMAIL, staleAdminEmail } from "@/lib/admin-seed";
+import { isValidEmail, otherAdminAction, resolveAdminEmail } from "@/lib/admin-seed";
 import { appUrl, isMockMode } from "@/lib/env";
 import { registerSchema } from "@/lib/validation";
 
@@ -31,11 +31,22 @@ describe("entorno", () => {
     expect(isMockMode()).toBe(true);
   });
 
-  it("desactiva solo gabriel@southwindglobalservices.com y no al admin vigente", () => {
-    expect(staleAdminEmail("gterrazas@southwindglobalservices.com")).toBe(STALE_ADMIN_EMAIL);
-    expect(staleAdminEmail("  Gterrazas@southwindglobalservices.com ")).toBe(STALE_ADMIN_EMAIL);
-    expect(staleAdminEmail(STALE_ADMIN_EMAIL)).toBeNull();
-    expect(staleAdminEmail("admin@southwind.example")).toBe(STALE_ADMIN_EMAIL);
+  it("rechaza ADMIN_EMAIL inválido sin incluir el valor en el error", () => {
+    expect(resolveAdminEmail(undefined)).toBe("admin@southwind.example");
+    expect(resolveAdminEmail("  gterrazas@southwindglobalservices.com ")).toBe(
+      "gterrazas@southwindglobalservices.com",
+    );
+    const bogus = "not-an-email-secret";
+    expect(() => resolveAdminEmail(bogus)).toThrow(/no es un correo válido/);
+    try {
+      resolveAdminEmail(bogus);
+    } catch (error) {
+      expect((error as Error).message).not.toContain(bogus);
+    }
+    expect(isValidEmail("gabriel@southwindglobalservices.com")).toBe(true);
+    expect(otherAdminAction("gabriel@southwindglobalservices.com", true)).toBe("deactivate");
+    expect(otherAdminAction(bogus, false)).toBe("delete");
+    expect(otherAdminAction(bogus, true)).toBe("deactivate");
   });
 
   it("omite el seed de build si SEED_ON_BUILD no es true", () => {
