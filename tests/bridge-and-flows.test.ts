@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { createHash, createSign, generateKeyPairSync } from "crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { BridgeHttpClient } from "@/lib/bridge/http";
@@ -27,6 +28,16 @@ describe("entorno", () => {
     expect(isMockMode()).toBe(false);
     process.env.BRIDGE_MOCK = "true";
     expect(isMockMode()).toBe(true);
+  });
+
+  it("omite el seed de build si SEED_ON_BUILD no es true", () => {
+    const result = spawnSync("node", ["scripts/seed-on-build.mjs"], {
+      env: { ...process.env, SEED_ON_BUILD: "false" },
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/omite el seed/);
+    expect(`${result.stdout}${result.stderr}`).not.toMatch(/VientoSur-2026/);
   });
 
   it("arma la URL pública con APP_URL y, si falta, con VERCEL_URL", () => {

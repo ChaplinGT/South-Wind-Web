@@ -16,6 +16,9 @@ const nextConfig: NextConfig = {
   },
   eslint: { ignoreDuringBuilds: true },
   poweredByHeader: false,
+  async redirects() {
+    return [{ source: "/login", destination: "/ingresar", permanent: false }];
+  },
 };
 
 export default nextConfig;

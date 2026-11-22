@@ -207,12 +207,8 @@ async function main() {
   }
   console.log("Datos de demostración listos.");
   console.log(`Admin: ${adminEmail}`);
-  if (process.env.ADMIN_PASSWORD) {
-    console.log("La contraseña de admin se tomó de ADMIN_PASSWORD y no se imprime.");
-  } else {
-    console.log(`Contraseña de demostración (admin y clientes): ${DEMO_PASSWORD}`);
-  }
-  console.log("Cliente: maria.quispe@importadora-andina.example");
+  console.log("La contraseña de admin no se imprime.");
+  console.log("Cliente de demostración: maria.quispe@importadora-andina.example");
 }
 
 main()

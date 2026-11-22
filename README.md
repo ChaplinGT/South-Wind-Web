@@ -129,7 +129,7 @@ npm run db:seed      # solo la demo, contra la DATABASE_URL actual
 npm run build        # prisma generate + next build
 ```
 
-En Vercel el comando de build es `npm run vercel-build` (`prisma generate`, `prisma migrate deploy`, `next build`). El proyecto lo detecta solo si existe el script `vercel-build`.
+En Vercel el comando de build es `npm run vercel-build`: `prisma generate`, `prisma migrate deploy`, el seed solo si `SEED_ON_BUILD=true`, y `next build`.
 
 ## Despliegue en Vercel (plan Hobby, modo de prueba)
 
@@ -148,18 +148,12 @@ En Vercel el comando de build es `npm run vercel-build` (`prisma generate`, `pri
    | `ADMIN_EMAIL` | correo real del administrador |
    | `ADMIN_PASSWORD` | clave que no sea la de demostración |
    | `SOUTH_WIND_FEE_PERCENT` | `0.50` |
+   | `SEED_ON_BUILD` | `true` en el deploy que debe sembrar; `false` después |
 
-   `DATABASE_URL` y `DATABASE_URL_UNPOOLED` las pone Neon. No las marque como solo de runtime: `migrate deploy` corre durante el build.
+   `DATABASE_URL` y `DATABASE_URL_UNPOOLED` las pone Neon. No las marque como solo de runtime: `migrate deploy` y, si el flag está activo, el seed corren durante el build y leen esas variables ahí. El seed no imprime la contraseña.
 
-4. Despliegue. Las migraciones corren solas. La base queda vacía hasta el seed.
-5. En su máquina, con las URLs de esa base (por ejemplo `vercel env pull .env.production.local`):
-
-   ```bash
-   set -a && source .env.production.local && set +a
-   npm run db:seed
-   ```
-
-   Crea el admin (`ADMIN_EMAIL` / `ADMIN_PASSWORD` si están definidos; si no, `admin@southwind.example` y `VientoSur-2026`) y las cuatro empresas de demostración. Una segunda ejecución no las duplica. Si `ADMIN_PASSWORD` está definida, cada seed actualiza esa clave y no la imprime.
+4. Despliegue con `SEED_ON_BUILD=true`. Las migraciones corren y después el seed idempotente crea el admin (`ADMIN_EMAIL` / `ADMIN_PASSWORD`) y las cuatro empresas de demostración. Un segundo build con el flag sigue sin duplicarlas. Luego puede poner `SEED_ON_BUILD=false` para que los builds siguientes solo migren.
+5. `/login` redirige a `/ingresar`.
 
 Los PDF se generan en la función al pedirlos. El logo y las fuentes DejaVu van dentro del despliegue. Los comprobantes de conversión se guardan en Postgres, no en disco. El estado simulado de Bridge también vive en la base, así que sobrevive entre invocaciones.
 
