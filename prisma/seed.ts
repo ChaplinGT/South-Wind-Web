@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
+import { staleAdminEmail } from "../lib/admin-seed";
 import { DEMO_PASSWORD, DEMO_STATEMENT, demoCompanies, type DemoCompany } from "../lib/demo-data";
 import { rails } from "../lib/rails";
 import { generateStatement } from "../lib/services/statements";
@@ -43,20 +44,35 @@ async function main() {
   const clientPasswordHash = bcrypt.hashSync(DEMO_PASSWORD, 10);
   const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
   const admin = existingAdmin
-    ? process.env.ADMIN_PASSWORD
-      ? await prisma.user.update({
-          where: { id: existingAdmin.id },
-          data: { passwordHash: bcrypt.hashSync(process.env.ADMIN_PASSWORD, 10), role: "admin", companyId: null },
-        })
-      : existingAdmin
+    ? await prisma.user.update({
+        where: { id: existingAdmin.id },
+        data: {
+          role: "admin",
+          companyId: null,
+          active: true,
+          ...(process.env.ADMIN_PASSWORD
+            ? { passwordHash: bcrypt.hashSync(process.env.ADMIN_PASSWORD, 10) }
+            : {}),
+        },
+      })
     : await prisma.user.create({
         data: {
           email: adminEmail,
           passwordHash: bcrypt.hashSync(adminPassword, 10),
           name: "Equipo South Wind",
           role: "admin",
+          active: true,
         },
       });
+
+  const staleEmail = staleAdminEmail(adminEmail);
+  if (staleEmail) {
+    const stale = await prisma.user.findUnique({ where: { email: staleEmail } });
+    if (stale?.active) {
+      await prisma.user.update({ where: { id: stale.id }, data: { active: false } });
+      console.log(`Cuenta desactivada: ${staleEmail}`);
+    }
+  }
 
   for (const company of demoCompanies) {
     const already = await prisma.company.findUnique({ where: { nit: company.nit } });

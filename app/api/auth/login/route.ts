@@ -14,8 +14,11 @@ export async function POST(request: Request) {
       : Object.fromEntries((await request.formData()).entries());
     const data = loginSchema.parse(raw);
     const user = await prisma.user.findUnique({ where: { email: data.email.toLowerCase() } });
-    if (!user || !bcrypt.compareSync(data.password, user.passwordHash)) {
-      throw new AppError("Correo o contraseña incorrectos.", 401);
+    if (!user || !user.active || !bcrypt.compareSync(data.password, user.passwordHash)) {
+      throw new AppError(
+        user && !user.active ? "Esta cuenta está desactivada." : "Correo o contraseña incorrectos.",
+        401,
+      );
     }
     const token = await signSession({
       sub: user.id,

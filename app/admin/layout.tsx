@@ -16,7 +16,7 @@ const items = [
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await readSession();
-  if (!session) redirect("/ingresar");
+  if (!session) redirect("/api/auth/logout");
   if (session.role !== "admin") redirect("/app");
   return (
     <PortalShell items={items} user={{ name: session.name, email: session.email }} eyebrow="Administración" mock={isMockMode()}>

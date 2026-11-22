@@ -7,7 +7,14 @@ export async function readSession(): Promise<SessionPayload | null> {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  return verifySession(token);
+  const session = await verifySession(token);
+  if (!session) return null;
+  const user = await prisma.user.findUnique({
+    where: { id: session.sub },
+    select: { active: true },
+  });
+  if (!user?.active) return null;
+  return session;
 }
 
 export async function requireUser(): Promise<SessionPayload> {

@@ -19,7 +19,7 @@ const items = [
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
   const session = await readSession();
-  if (!session) redirect("/ingresar");
+  if (!session) redirect("/api/auth/logout");
   if (session.role !== "client" || !session.companyId) redirect("/admin");
   const company = await prisma.company.findUnique({ where: { id: session.companyId } });
   if (!company) redirect("/ingresar");

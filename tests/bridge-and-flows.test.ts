@@ -9,6 +9,7 @@ import { feeAmount } from "@/lib/money";
 import { periodBounds } from "@/lib/format";
 import { compileStatement } from "@/lib/statements/build";
 import { renderStatementPdf } from "@/lib/statements/pdf";
+import { STALE_ADMIN_EMAIL, staleAdminEmail } from "@/lib/admin-seed";
 import { appUrl, isMockMode } from "@/lib/env";
 import { registerSchema } from "@/lib/validation";
 
@@ -28,6 +29,13 @@ describe("entorno", () => {
     expect(isMockMode()).toBe(false);
     process.env.BRIDGE_MOCK = "true";
     expect(isMockMode()).toBe(true);
+  });
+
+  it("desactiva solo gabriel@southwindglobalservices.com y no al admin vigente", () => {
+    expect(staleAdminEmail("gterrazas@southwindglobalservices.com")).toBe(STALE_ADMIN_EMAIL);
+    expect(staleAdminEmail("  Gterrazas@southwindglobalservices.com ")).toBe(STALE_ADMIN_EMAIL);
+    expect(staleAdminEmail(STALE_ADMIN_EMAIL)).toBeNull();
+    expect(staleAdminEmail("admin@southwind.example")).toBe(STALE_ADMIN_EMAIL);
   });
 
   it("omite el seed de build si SEED_ON_BUILD no es true", () => {
