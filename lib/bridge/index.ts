@@ -8,7 +8,7 @@ export function getBridge(): BridgeClient {
   if (isMockMode()) return getMockBridge();
   const apiKey = process.env.BRIDGE_API_KEY;
   if (!apiKey) {
-    throw new BridgeError("La clave de Bridge no está configurada en el servidor.", 500);
+    throw new BridgeError("No se pudo completar la operación. Intente nuevamente.", 500);
   }
   return new BridgeHttpClient({ apiKey, baseUrl: bridgeBaseUrl() });
 }

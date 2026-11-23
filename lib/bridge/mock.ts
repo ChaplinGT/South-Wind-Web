@@ -326,7 +326,7 @@ export class MockBridge implements BridgeClient {
   async getCustomer(id: string) {
     await this.hydrate();
     const found = this.store.customers.find((item) => item.id === id);
-    if (!found) throw new BridgeError("Bridge no encontró el cliente.", 404);
+    if (!found) throw new BridgeError("No encontramos la cuenta.", 404);
     return found;
   }
 
@@ -407,7 +407,7 @@ export class MockBridge implements BridgeClient {
     const replay = this.remember(idempotencyKey, hash, null);
     if (replay) return replay as BridgeVirtualAccount;
     if (input.developer_fee_percent !== undefined && input.fee_config !== undefined) {
-      throw new BridgeError("No se puede enviar developer_fee_percent y fee_config juntos.", 422);
+      throw new BridgeError("No se pudo abrir la cuenta. Intente nuevamente.", 422);
     }
     const destination = (input.destination ?? {}) as Record<string, unknown>;
     const wallet = this.store.wallets.find((item) => item.id === destination.bridge_wallet_id) ??
@@ -442,10 +442,10 @@ export class MockBridge implements BridgeClient {
   async updateVirtualAccount(customerId: string, virtualAccountId: string, input: Record<string, unknown>) {
     await this.getCustomer(customerId);
     if (input.developer_fee_percent !== undefined && input.fee_config !== undefined) {
-      throw new BridgeError("No se puede enviar developer_fee_percent y fee_config juntos.", 422);
+      throw new BridgeError("No se pudo abrir la cuenta. Intente nuevamente.", 422);
     }
     const found = this.store.virtualAccounts.find((item) => item.id === virtualAccountId && item.customer_id === customerId);
-    if (!found) throw new BridgeError("Bridge no encontró la cuenta virtual.", 404);
+    if (!found) throw new BridgeError("No encontramos la cuenta.", 404);
     const feeConfig = input.fee_config as BridgeVirtualAccount["fee_config"] | undefined;
     if (input.developer_fee_percent !== undefined) {
       found.developer_fee_percent = String(input.developer_fee_percent);
@@ -490,7 +490,7 @@ export class MockBridge implements BridgeClient {
   async getTransfer(id: string) {
     await this.hydrate();
     const found = this.store.transfers.find((item) => item.id === id);
-    if (!found) throw new BridgeError("Bridge no encontró la transferencia.", 404);
+    if (!found) throw new BridgeError("No encontramos la transferencia.", 404);
     return found;
   }
 
@@ -541,7 +541,7 @@ export class MockBridge implements BridgeClient {
   async markCustomerActive(id: string) {
     await this.hydrate();
     const found = this.store.customers.find((item) => item.id === id);
-    if (!found) throw new BridgeError("Bridge no encontró el cliente.", 404);
+    if (!found) throw new BridgeError("No encontramos la cuenta.", 404);
     found.status = "active";
     found.has_accepted_terms_of_service = true;
     found.updated_at = new Date().toISOString();
@@ -568,7 +568,7 @@ export class MockBridge implements BridgeClient {
     const account = this.store.virtualAccounts.find(
       (item) => item.id === virtualAccountId && item.customer_id === customerId,
     );
-    if (!account) throw new BridgeError("No encontramos la cuenta virtual.", 404);
+    if (!account) throw new BridgeError("No encontramos la cuenta.", 404);
     const wallet = this.store.wallets.find((item) => item.customer_id === customerId);
     const balance = wallet?.balances.find((item) => item.currency === "usdc");
     if (balance) balance.balance = add(balance.balance, input.amount);

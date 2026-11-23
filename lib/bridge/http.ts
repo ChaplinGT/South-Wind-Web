@@ -49,7 +49,7 @@ export class BridgeHttpClient implements BridgeClient {
     try {
       response = await fetchImpl(url, { method, headers, body });
     } catch {
-      throw new BridgeError("No se pudo contactar a Bridge. Intente nuevamente.", 503);
+      throw new BridgeError("No se pudo completar la operación. Intente nuevamente.", 503);
     }
     const text = await response.text();
     if (!response.ok) {
@@ -59,7 +59,7 @@ export class BridgeHttpClient implements BridgeClient {
     try {
       return JSON.parse(text) as T;
     } catch {
-      throw new BridgeError("Bridge devolvió una respuesta que no se pudo leer.", 502);
+      throw new BridgeError("No se pudo leer la respuesta. Intente nuevamente.", 502);
     }
   }
 
@@ -106,7 +106,7 @@ export class BridgeHttpClient implements BridgeClient {
       `/customers/${encodeURIComponent(customerId)}/kyc_link`,
     );
     const url = stringField(data, "url") || stringField(data, "kyc_link");
-    if (!url) throw new BridgeError("Bridge no devolvió el enlace de verificación.", 502);
+    if (!url) throw new BridgeError("No se pudo obtener el enlace de verificación.", 502);
     return {
       url,
       tos_url: stringField(data, "tos_link") || stringField(data, "tos_url"),

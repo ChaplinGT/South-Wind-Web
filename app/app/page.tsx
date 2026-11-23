@@ -92,25 +92,19 @@ export default async function DashboardPage() {
       </div>
       <section className="grid gap-4 md:grid-cols-2">
         <article className="card">
-          <p className="text-xs uppercase tracking-wide text-teal-800">Tipo de cambio USDC / bolivianos</p>
+          <p className="text-xs uppercase tracking-wide text-teal-800">USDC / bolivianos</p>
           <p className="mt-1 text-xs text-teal-900/60">Cotización de referencia para sus operaciones.</p>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <div><p className="text-sm text-teal-900/60">Compra</p><p className="font-display text-3xl">{bob?.compra ? bob.compra.toFixed(2) : "—"}</p></div>
-            <div><p className="text-sm text-teal-900/60">Venta</p><p className="font-display text-3xl">{bob?.venta ? bob.venta.toFixed(2) : "—"}</p></div>
-          </div>
+          <RateTable
+            rows={[{ code: "BOB", buy: bob?.compra ?? null, sell: bob?.venta ?? null }]}
+          />
           <p className="mt-2 text-xs text-teal-900/50">{bob ? `Actualizado ${formatDateTime(bob.at)}` : "Cotización no disponible en este momento."}</p>
         </article>
         <article className="card">
           <p className="text-xs uppercase tracking-wide text-teal-800">Otras monedas</p>
-          <p className="mt-1 text-xs text-teal-900/60">EUR, GBP, MXN, BRL y COP. Cotización de referencia.</p>
-          <ul className="mt-3 space-y-2 text-sm">
-            {fxQuotes.map((quote) => (
-              <li key={quote.code} className="flex justify-between gap-3">
-                <span className="font-semibold">{quote.code.toUpperCase()}</span>
-                <span>Compra {quote.buy ? quote.buy.toFixed(4) : "—"} · Venta {quote.sell ? quote.sell.toFixed(4) : "—"}</span>
-              </li>
-            ))}
-          </ul>
+          <p className="mt-1 text-xs text-teal-900/60">Cotización de referencia.</p>
+          <RateTable
+            rows={fxQuotes.map((quote) => ({ code: quote.code.toUpperCase(), buy: quote.buy, sell: quote.sell }))}
+          />
           <p className="mt-2 text-xs text-teal-900/50">{fxQuotes[0]?.at ? `Actualizado ${formatDateTime(fxQuotes[0].at)}` : "Sin cotización"}</p>
         </article>
       </section>
@@ -178,6 +172,35 @@ export default async function DashboardPage() {
       </section>
     </div>
   );
+}
+
+function RateTable({ rows }: { rows: { code: string; buy: number | null; sell: number | null }[] }) {
+  return (
+    <div className="mt-3 overflow-x-auto">
+      <table className="w-full min-w-[16rem] border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-teal-200 text-left text-xs uppercase tracking-wide text-teal-800">
+            <th className="py-2 pr-3 font-semibold">Moneda</th>
+            <th className="py-2 pl-3 text-right font-semibold">Compra</th>
+            <th className="py-2 pl-3 text-right font-semibold">Venta</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.code} className="border-b border-teal-100 last:border-b-0">
+              <td className="py-2.5 pr-3 font-medium">{row.code}</td>
+              <td className="py-2.5 pl-3 text-right tabular-nums">{formatRate(row.buy)}</td>
+              <td className="py-2.5 pl-3 text-right tabular-nums">{formatRate(row.sell)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function formatRate(value: number | null): string {
+  return value === null || !Number.isFinite(value) ? "—" : value.toFixed(4);
 }
 
 function txHash(raw: string): string | null {
