@@ -92,10 +92,18 @@ model PaymentOrder {
   fixedFeeBob   String?
   rate          String
   usdcAmount    String
-  feePercent    String
-  status        String      @default("pendiente")
-  txHash        String?
-  reference     String?
+  feePercent       String
+  status           String      @default("pendiente")
+  kind             String      @default("bob")
+  feeAddress       String?
+  feeChain         String?
+  feeLegStatus     String?
+  paymentLegStatus String?
+  feeTxHash        String?
+  paymentTxHash    String?
+  drainId          String?     @unique
+  txHash           String?
+  reference        String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 }

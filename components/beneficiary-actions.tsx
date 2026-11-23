@@ -5,6 +5,21 @@ import { useRouter } from "next/navigation";
 import { formatAmount } from "@/lib/format";
 import { quoteWalletSend } from "@/lib/pricing";
 import { Alert } from "./ui";
+import { TwoSends } from "./two-sends";
+
+type SelfSend = {
+  usdcAmount: string;
+  fixedFeeUsd: string;
+  feeAddress: string;
+  feeChain: string;
+  liquidationAddress: string;
+  sendFeePercent: string;
+  sendFeeUsdc: string;
+  feeQr?: string;
+  paymentQr?: string;
+  feeLegStatus?: string | null;
+  paymentLegStatus?: string | null;
+};
 
 type DirectQuote = {
   rate: string;
@@ -40,6 +55,9 @@ export function BeneficiaryActions({
   const [walletReference, setWalletReference] = useState("");
   const [walletReady, setWalletReady] = useState(false);
   const [created, setCreated] = useState<DirectQuote | null>(null);
+  const [selfQuote, setSelfQuote] = useState<SelfSend | null>(null);
+  const [selfOrder, setSelfOrder] = useState<SelfSend | null>(null);
+  const [selfUsdc, setSelfUsdc] = useState("");
 
   async function quoteDirect(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -78,6 +96,51 @@ export function BeneficiaryActions({
       if (!response.ok) throw new Error(body.error || "No se pudo crear la orden.");
       setCreated(body);
       setDirectQuote(null);
+      router.refresh();
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function quoteSelf(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    setError(null);
+    setSelfOrder(null);
+    try {
+      const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+      const usdcAmount = String(data.usdcAmount || "");
+      const response = await fetch("/api/ordenes/cotizar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ beneficiaryId, usdcAmount, kind: "wallet" }),
+      });
+      const body = (await response.json()) as SelfSend & { error?: string };
+      if (!response.ok) throw new Error(body.error || "No se pudo preparar el pago.");
+      setSelfUsdc(usdcAmount);
+      setSelfQuote(body);
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function confirmSelf() {
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/ordenes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ beneficiaryId, usdcAmount: selfUsdc, kind: "wallet" }),
+      });
+      const body = (await response.json()) as SelfSend & { error?: string };
+      if (!response.ok) throw new Error(body.error || "No se pudo crear la orden.");
+      setSelfOrder(body);
+      setSelfQuote(null);
       router.refresh();
     } catch (caught) {
       setError((caught as Error).message);
@@ -140,7 +203,7 @@ export function BeneficiaryActions({
         <p className="text-sm font-semibold">1. Pago directo</p>
         <p className="mt-1 text-xs leading-5 text-teal-900/70">
           Deposite bolivianos en South Wind. South Wind compra USDC al precio de compra de Binance más el margen y lo envía a la dirección de liquidación. No hace falta una billetera Bridge.
-          Al llegar, Bridge retiene {sendFeePercent} %. Si usted envía el USDC por su cuenta a esa dirección, ese porcentaje igual se retiene, pero el cargo fijo de USD {fixedSendFeeUsd} no se puede cobrar.
+          Al llegar, Bridge retiene {sendFeePercent} %. Si paga desde su propia billetera, la orden muestra dos envíos: USD {fixedSendFeeUsd} en USDC a la dirección de South Wind en esta red, y el monto a la dirección de liquidación. Queda pendiente hasta que los dos estén confirmados.
         </p>
         {directQuote ? (
           <div className="mt-3 space-y-2 rounded-2xl bg-teal-50 p-3 text-sm">
@@ -162,6 +225,44 @@ export function BeneficiaryActions({
             <button className="btn-secondary" disabled={pending} type="submit">Ver desglose</button>
           </form>
         )}
+        <div className="mt-4">
+          <p className="text-sm font-semibold">Pagar desde mi wallet</p>
+          <p className="mt-1 text-xs leading-5 text-teal-900/70">
+            Dos transferencias de USDC desde cualquier billetera. El cargo fijo va a South Wind y el pago va a la dirección de liquidación. No usa la billetera Bridge.
+          </p>
+          {selfOrder?.feeQr && selfOrder.paymentQr ? (
+            <TwoSends
+              feeAmount={selfOrder.fixedFeeUsd}
+              feeAddress={selfOrder.feeAddress}
+              feeChain={selfOrder.feeChain}
+              feeQr={selfOrder.feeQr}
+              feeStatus={selfOrder.feeLegStatus || "pendiente"}
+              paymentAmount={selfOrder.usdcAmount}
+              paymentAddress={selfOrder.liquidationAddress}
+              paymentQr={selfOrder.paymentQr}
+              paymentStatus={selfOrder.paymentLegStatus || "pendiente"}
+              sendFeePercent={selfOrder.sendFeePercent}
+              sendFeeUsdc={selfOrder.sendFeeUsdc}
+            />
+          ) : selfQuote ? (
+            <div className="mt-3 space-y-2 text-sm">
+              <p>Envío 1: {selfQuote.fixedFeeUsd} USDC a South Wind ({selfQuote.feeChain})</p>
+              <p className="break-all text-xs">{selfQuote.feeAddress}</p>
+              <p>Envío 2: {selfQuote.usdcAmount} USDC a la dirección de liquidación</p>
+              <p className="break-all text-xs">{selfQuote.liquidationAddress}</p>
+              <p>Bridge retiene {selfQuote.sendFeeUsdc} USDC ({selfQuote.sendFeePercent} %) del segundo envío.</p>
+              <div className="flex flex-wrap gap-2">
+                <button className="btn-secondary" type="button" onClick={() => setSelfQuote(null)}>Volver</button>
+                <button className="btn-primary" type="button" disabled={pending} onClick={confirmSelf}>{pending ? "Creando…" : "Crear orden"}</button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={quoteSelf} className="mt-2 flex flex-wrap items-end gap-2">
+              <label><span className="label">USDC al beneficiario</span><input className="input w-40" name="usdcAmount" placeholder="100.00" required /></label>
+              <button className="btn-secondary" disabled={pending} type="submit">Ver los dos envíos</button>
+            </form>
+          )}
+        </div>
       </div>
       <div>
         <p className="text-sm font-semibold">2. Desde la billetera Bridge</p>

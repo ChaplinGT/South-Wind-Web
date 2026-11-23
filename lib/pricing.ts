@@ -197,9 +197,9 @@ export function marginSummary(pricing: PricingSettings): MarginRow[] {
     grossMarginPercent: marginPercent(ref * (send / 100) + fixedSend, sendCost, ref),
   });
   rows.push({
-    route: "USDC enviado por el cliente a la dirección",
-    detail: `Solo el ${pricing.sendFeePercent} % de la dirección de liquidación. El cargo fijo no se puede cobrar. Mismos costos de orquestación y USDT.`,
-    grossMarginPercent: marginPercent(ref * (send / 100), sendCost, ref),
+    route: "USDC enviado por el cliente desde su billetera",
+    detail: `${pricing.sendFeePercent} % en la dirección de liquidación más USD ${pricing.fixedSendFeeUsd} enviados aparte a South Wind. Mismos costos de orquestación y USDT.`,
+    grossMarginPercent: marginPercent(ref * (send / 100) + fixedSend, sendCost, ref),
   });
   rows.push({
     route: "Envío desde billetera Bridge",

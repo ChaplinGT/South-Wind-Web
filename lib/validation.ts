@@ -56,6 +56,7 @@ export const virtualAccountRequestSchema = z.object({
 export const paymentOrderSchema = z.object({
   beneficiaryId: z.string().min(1),
   usdcAmount: amount,
+  kind: z.enum(["bob", "wallet"]).optional().default("bob"),
 });
 
 const moneyField = z

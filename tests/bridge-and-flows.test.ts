@@ -22,6 +22,15 @@ import {
 } from "@/lib/pricing";
 import { applySpread, averageNearMedian, pricesFromBinanceBody } from "@/lib/rates";
 import { railsFromEndorsements } from "@/lib/service-rails";
+import {
+  assignFeeTransfers,
+  drainConfirmsPayment,
+  matchDrainOrder,
+  parseEvmTransferLogs,
+  statusFromLegs,
+  TRANSFER_TOPIC,
+  usdcToRaw,
+} from "@/lib/wallet-sends";
 import { appUrl, isMockMode } from "@/lib/env";
 import { registerSchema } from "@/lib/validation";
 
@@ -308,5 +317,61 @@ describe("extractos, comisiones y validación", () => {
     });
     expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
     expect(pdf.length).toBeGreaterThan(1000);
+  });
+});
+
+describe("pago desde la billetera del cliente", () => {
+  const token = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+  const southWind = "0x00000000000000000000000000000000000000aa";
+  const ten = usdcToRaw("10.00", 6);
+
+  it("exige los dos tramos y reconoce un envío de USDC de al menos el cargo fijo", () => {
+    expect(statusFromLegs("pendiente", "confirmado")).toBe("pendiente");
+    expect(statusFromLegs("confirmado", "pendiente")).toBe("pendiente");
+    expect(statusFromLegs("confirmado", "confirmado")).toBe("pagado");
+    expect(drainConfirmsPayment("funds_received")).toBe(true);
+    expect(drainConfirmsPayment("canceled")).toBe(false);
+    const topicTo = `0x${southWind.slice(2).padStart(64, "0")}`;
+    const logs = parseEvmTransferLogs(
+      [
+        {
+          address: token,
+          topics: [TRANSFER_TOPIC, `0x${"11".repeat(32)}`, topicTo],
+          data: `0x${ten.toString(16)}`,
+          transactionHash: "0xfee",
+        },
+        {
+          address: token,
+          topics: [TRANSFER_TOPIC, `0x${"11".repeat(32)}`, `0x${"22".repeat(32)}`],
+          data: `0x${ten.toString(16)}`,
+          transactionHash: "0xother",
+        },
+      ],
+      token,
+      southWind,
+    );
+    expect(logs.map((log) => log.txHash)).toEqual(["0xfee"]);
+    const orders = [
+      { id: "a", feeRaw: ten, createdAt: 2_000_000 },
+      { id: "b", feeRaw: ten, createdAt: 3_000_000 },
+    ];
+    const assigned = assignFeeTransfers(
+      orders,
+      [
+        { txHash: "0xold", amountRaw: ten, at: 0 },
+        { txHash: "0xfee", amountRaw: ten, at: 2_500_000 },
+        { txHash: "0xshort", amountRaw: usdcToRaw("9.00", 6), at: 4_000_000 },
+      ],
+      new Set(),
+    );
+    expect(assigned).toEqual([{ orderId: "a", txHash: "0xfee" }]);
+    expect(matchDrainOrder([{ id: "pay", usdcAmount: "100.00", createdAt: 1 }], "100.0")).toBe("pay");
+    expect(matchDrainOrder(
+      [
+        { id: "one", usdcAmount: "50.00", createdAt: 1 },
+        { id: "two", usdcAmount: "80.00", createdAt: 2 },
+      ],
+      "80.00",
+    )).toBe("two");
   });
 });

@@ -3,23 +3,41 @@ import { BeneficiaryForm } from "@/components/forms";
 import { BeneficiaryActions } from "@/components/beneficiary-actions";
 import { CopyButton } from "@/components/copy-button";
 import { prisma } from "@/lib/db";
+import { feeAmount } from "@/lib/money";
 import { railLabel } from "@/lib/rails";
 import { requireClient } from "@/lib/session";
+import { reconcileWalletFees } from "@/lib/services/orders";
 import { getPricing } from "@/lib/settings";
+import { TwoSends } from "@/components/two-sends";
 
 export const metadata = { title: "Beneficiarios" };
 
 export default async function BeneficiariesPage() {
   const session = await requireClient();
-  const [beneficiaries, company, pricing] = await Promise.all([
+  await reconcileWalletFees(session.companyId).catch(() => undefined);
+  const [beneficiaries, company, pricing, walletOrders] = await Promise.all([
     prisma.beneficiary.findMany({ where: { companyId: session.companyId }, orderBy: { createdAt: "desc" } }),
     prisma.company.findUnique({ where: { id: session.companyId } }),
     getPricing(),
+    prisma.paymentOrder.findMany({
+      where: { companyId: session.companyId, kind: "wallet", status: "pendiente" },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
   const cards = await Promise.all(
     beneficiaries.map(async (item) => ({
       item,
       qr: item.liquidationAddress ? await QRCode.toDataURL(item.liquidationAddress, { margin: 1, width: 160 }) : null,
+      orders: await Promise.all(
+        walletOrders
+          .filter((order) => order.beneficiaryId === item.id && order.feeAddress && item.liquidationAddress)
+          .map(async (order) => ({
+            order,
+            feeQr: await QRCode.toDataURL(order.feeAddress || "", { margin: 1, width: 180 }),
+            paymentQr: await QRCode.toDataURL(item.liquidationAddress || "", { margin: 1, width: 180 }),
+            sendFeeUsdc: feeLabel(order.usdcAmount, order.feePercent),
+          })),
+      ),
     })),
   );
   return (
@@ -29,7 +47,7 @@ export default async function BeneficiariesPage() {
         <p className="text-sm leading-6 text-teal-950/75">
           Al registrar un beneficiario se crea su cuenta externa en Bridge y una dirección de liquidación en USDC. Esa dirección es la que recibe el pago.
         </p>
-        {cards.map(({ item, qr }) => (
+        {cards.map(({ item, qr, orders }) => (
           <article key={item.id} className="card">
             <p className="text-xs uppercase tracking-wide text-teal-800">{railLabel(item.rail)} · USDC en {item.liquidationChain || "—"}</p>
             <h2 className="mt-1 text-lg font-semibold">{item.nickname}</h2>
@@ -47,6 +65,22 @@ export default async function BeneficiariesPage() {
             ) : (
               <p className="mt-3 text-sm text-teal-900/70">Sin dirección de liquidación.</p>
             )}
+            {orders.map(({ order, feeQr, paymentQr, sendFeeUsdc }) => (
+              <TwoSends
+                key={order.id}
+                feeAmount={order.fixedFeeUsd || ""}
+                feeAddress={order.feeAddress || ""}
+                feeChain={order.feeChain || item.liquidationChain || ""}
+                feeQr={feeQr}
+                feeStatus={order.feeLegStatus || "pendiente"}
+                paymentAmount={order.usdcAmount}
+                paymentAddress={item.liquidationAddress || ""}
+                paymentQr={paymentQr}
+                paymentStatus={order.paymentLegStatus || "pendiente"}
+                sendFeePercent={order.feePercent}
+                sendFeeUsdc={sendFeeUsdc}
+              />
+            ))}
             <BeneficiaryActions
               beneficiaryId={item.id}
               sendFeePercent={pricing.sendFeePercent}
@@ -61,4 +95,12 @@ export default async function BeneficiariesPage() {
       <BeneficiaryForm />
     </div>
   );
+}
+
+function feeLabel(amount: string, percent: string): string {
+  try {
+    return feeAmount(amount, percent);
+  } catch {
+    return "";
+  }
 }

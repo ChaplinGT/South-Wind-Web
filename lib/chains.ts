@@ -1,3 +1,5 @@
+export const SOLANA_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
 const USDC: Record<string, { contract: string; decimals: number }> = {
   ethereum: { contract: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6 },
   polygon: { contract: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", decimals: 6 },
@@ -5,7 +7,9 @@ const USDC: Record<string, { contract: string; decimals: number }> = {
   arbitrum: { contract: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", decimals: 6 },
 };
 
-const SOLANA_USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+export function usdcToken(network: string): { contract: string; decimals: number } | null {
+  return USDC[network] ?? null;
+}
 
 export function rpcEnv(network: string): string | undefined {
   const key = `RPC_${network.toUpperCase()}`;
@@ -68,7 +72,7 @@ export async function readUsdcBalance(network: string, address: string): Promise
           jsonrpc: "2.0",
           id: 1,
           method: "getTokenAccountsByOwner",
-          params: [address, { mint: SOLANA_USDC }, { encoding: "jsonParsed" }],
+          params: [address, { mint: SOLANA_USDC_MINT }, { encoding: "jsonParsed" }],
         }),
         signal: AbortSignal.timeout(8000),
       });

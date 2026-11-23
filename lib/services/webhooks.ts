@@ -3,7 +3,9 @@ import { audit } from "../audit";
 import { mapKybStatus } from "../kyb";
 import { receiveNetUsdc } from "../pricing";
 import { getPricing } from "../settings";
+import { drainConfirmsPayment, matchDrainOrder } from "../wallet-sends";
 import { isFailureState } from "./ledger";
+import { confirmWalletPayment } from "./orders";
 import { provisionCompany } from "./provision";
 import type { BridgeWebhookEvent } from "../bridge/types";
 
@@ -19,7 +21,9 @@ export async function processBridgeWebhook(event: BridgeWebhookEvent) {
     if (event.event_category === "customer") await applyCustomer(event);
     else if (event.event_category === "transfer") await applyTransfer(event);
     else if (event.event_category === "virtual_account.activity") await applyVirtualAccount(event);
-    else status = "stored";
+    else if (event.event_category === "liquidation_address.drain" || event.event_category.startsWith("liquidation_address")) {
+      await applyLiquidationDrain(event);
+    } else status = "stored";
   } catch (error) {
     status = "error";
     console.error("webhook", event.event_id, error);
@@ -92,6 +96,38 @@ export async function applyTransfer(event: BridgeWebhookEvent) {
       });
     }
   }
+}
+
+async function applyLiquidationDrain(event: BridgeWebhookEvent) {
+  const object = event.event_object;
+  const state = String(object.state ?? event.event_object_status ?? "");
+  if (!drainConfirmsPayment(state)) return;
+  const liquidationId = String(object.liquidation_address_id ?? "");
+  const amount = String(object.amount ?? "");
+  const drainId = String(object.id ?? event.event_object_id ?? "");
+  const txHash = String(object.deposit_tx_hash ?? object.destination_tx_hash ?? "");
+  if (!liquidationId) return;
+  if (drainId) {
+    const used = await prisma.paymentOrder.findFirst({ where: { drainId } });
+    if (used) return;
+  }
+  const beneficiary = await prisma.beneficiary.findFirst({ where: { liquidationId } });
+  if (!beneficiary) return;
+  const pending = await prisma.paymentOrder.findMany({
+    where: {
+      beneficiaryId: beneficiary.id,
+      kind: "wallet",
+      paymentLegStatus: { not: "confirmado" },
+      status: { not: "pagado" },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+  const orderId = matchDrainOrder(
+    pending.map((order) => ({ id: order.id, usdcAmount: order.usdcAmount, createdAt: order.createdAt.getTime() })),
+    amount,
+  );
+  if (!orderId) return;
+  await confirmWalletPayment(orderId, txHash, drainId || undefined);
 }
 
 async function applyVirtualAccount(event: BridgeWebhookEvent) {

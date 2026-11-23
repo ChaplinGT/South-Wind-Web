@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export function OrderActions({ id }: { id: string }) {
+export function OrderActions({ id, kind = "bob", feeConfirmed = false }: { id: string; kind?: string; feeConfirmed?: boolean }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -20,6 +20,16 @@ export function OrderActions({ id }: { id: string }) {
       return;
     }
     router.refresh();
+  }
+  if (kind === "wallet") {
+    return (
+      <form onSubmit={onSubmit} className="mt-3 grid gap-2 sm:grid-cols-3">
+        {error ? <p className="text-sm text-rose-700 sm:col-span-3">{error}</p> : null}
+        <input type="hidden" name="status" value="pendiente" />
+        <input className="input sm:col-span-2" name="txHash" placeholder="Hash del cargo fijo a South Wind" disabled={feeConfirmed} />
+        <button className="btn-primary" type="submit" disabled={feeConfirmed}>{feeConfirmed ? "Cargo confirmado" : "Confirmar cargo"}</button>
+      </form>
+    );
   }
   return (
     <form onSubmit={onSubmit} className="mt-3 grid gap-2 sm:grid-cols-3">
