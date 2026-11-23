@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { formatAmount, formatDateTime } from "@/lib/format";
 import { getBridge } from "@/lib/bridge";
 import { readUsdcBalance } from "@/lib/chains";
+import { kybLabel, kindLabel, labelOf, transferStateLabel } from "@/lib/labels";
 import { bobReference, fxWithMarkup } from "@/lib/rates";
 import { getBobMarkupPercent, getFxMarkupPercent } from "@/lib/settings";
 import { railsFromEndorsements } from "@/lib/service-rails";
@@ -67,16 +68,16 @@ export default async function DashboardPage() {
             .then((wallets) => {
               const match = wallets.data.find((item) => item.id === profile.bridgeWalletId);
               const amount = match?.balances.find((item) => item.currency === "usdc")?.balance;
-              return { label: `Billetera Bridge · ${profile.kind}`, text: amount ? `${amount} USDC` : "Saldo no disponible" };
+              return { label: `Billetera · ${profile.kind === "persona" ? "Persona" : "Empresa"}`, text: amount ? `${amount} USDC` : "Saldo no disponible" };
             })
-            .catch(() => ({ label: `Billetera Bridge · ${profile.kind}`, text: "Saldo no disponible" })),
+            .catch(() => ({ label: `Billetera · ${profile.kind === "persona" ? "Persona" : "Empresa"}`, text: "Saldo no disponible" })),
         );
       }
       for (const wallet of profile.externalWallets) {
         rows.push(
           readUsdcBalance(wallet.network, wallet.address).then((result) => ({
             label: `${wallet.network} · ${wallet.address.slice(0, 8)}…`,
-            text: result.available ? `${result.amount} USDC` : result.reason,
+            text: result.available ? `${result.amount} USDC` : "Saldo no disponible",
           })),
         );
       }
@@ -87,21 +88,21 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-4xl">Hola, {session.name.split(" ")[0]}</h1>
-        <p className="mt-1 text-sm text-teal-900/70">Su cuenta South Wind. Los servicios de Bridge se habilitan desde aquí.</p>
+        <p className="mt-1 text-sm text-teal-900/70">Bienvenido a su cuenta. Desde aquí puede pagar, recibir y consultar sus movimientos.</p>
       </div>
       <section className="grid gap-4 md:grid-cols-2">
         <article className="card">
-          <p className="text-xs uppercase tracking-wide text-teal-800">Referencia USDC/BOB</p>
-          <p className="mt-1 text-xs text-teal-900/60">USDC se muestra a la par de USDT. Fuente: {bob?.source ?? "Binance P2P"} · margen {bobMarkup} %</p>
+          <p className="text-xs uppercase tracking-wide text-teal-800">Tipo de cambio USDC / bolivianos</p>
+          <p className="mt-1 text-xs text-teal-900/60">Cotización de referencia para sus operaciones.</p>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div><p className="text-sm text-teal-900/60">Compra</p><p className="font-display text-3xl">{bob?.compra ? bob.compra.toFixed(2) : "—"}</p></div>
             <div><p className="text-sm text-teal-900/60">Venta</p><p className="font-display text-3xl">{bob?.venta ? bob.venta.toFixed(2) : "—"}</p></div>
           </div>
-          <p className="mt-2 text-xs text-teal-900/50">{bob ? formatDateTime(bob.at) : "No se pudo leer Binance P2P."}</p>
+          <p className="mt-2 text-xs text-teal-900/50">{bob ? `Actualizado ${formatDateTime(bob.at)}` : "Cotización no disponible en este momento."}</p>
         </article>
         <article className="card">
-          <p className="text-xs uppercase tracking-wide text-teal-800">Otras monedas · Bridge</p>
-          <p className="mt-1 text-xs text-teal-900/60">EUR, GBP, MXN, BRL y COP: buy_rate y sell_rate de Bridge, más el margen South Wind de {fxMarkup} %.</p>
+          <p className="text-xs uppercase tracking-wide text-teal-800">Otras monedas</p>
+          <p className="mt-1 text-xs text-teal-900/60">EUR, GBP, MXN, BRL y COP. Cotización de referencia.</p>
           <ul className="mt-3 space-y-2 text-sm">
             {fxQuotes.map((quote) => (
               <li key={quote.code} className="flex justify-between gap-3">
@@ -110,7 +111,7 @@ export default async function DashboardPage() {
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-teal-900/50">{fxQuotes[0]?.at ? formatDateTime(fxQuotes[0].at) : "Sin cotización"} · Bridge</p>
+          <p className="mt-2 text-xs text-teal-900/50">{fxQuotes[0]?.at ? `Actualizado ${formatDateTime(fxQuotes[0].at)}` : "Sin cotización"}</p>
         </article>
       </section>
       <section className="grid gap-4 md:grid-cols-2">
@@ -122,7 +123,7 @@ export default async function DashboardPage() {
             return (
               <div key={profile.id}>
                 <p className="font-semibold">{profile.kind === "persona" ? "Persona" : "Empresa"} · {profile.legalName}</p>
-                <p className="text-sm text-teal-900/70">{rails.length ? rails.join(" · ") : "Sin rieles habilitados"} · verificación {profile.kybStatus}</p>
+                <p className="text-sm text-teal-900/70">{rails.length ? rails.join(" · ") : "Sin vías de pago habilitadas"} · verificación {labelOf(kybLabel, profile.kybStatus)}</p>
               </div>
             );
           })}
@@ -130,7 +131,7 @@ export default async function DashboardPage() {
         </article>
         <article className="card space-y-3">
           <h2 className="font-display text-2xl">Remesas transfronterizas</h2>
-          <p className="text-sm text-teal-900/70">Cuentas virtuales para recibir y convertir a USDC en su billetera.</p>
+          <p className="text-sm text-teal-900/70">Reciba dólares, euros y otras monedas, y acredítelos en USDC.</p>
           {profiles.flatMap((profile) => profile.virtualAccounts).map((account) => (
             <p key={account.id} className="text-sm">{account.currency.toUpperCase()} · {account.status}</p>
           ))}
@@ -148,7 +149,7 @@ export default async function DashboardPage() {
       <section className="card">
         <h2 className="font-display text-2xl">Saldos</h2>
         <ul className="mt-3 space-y-2 text-sm">
-          {balances.length === 0 ? <li>Saldo no disponible hasta que registre una billetera Bridge o externa.</li> : null}
+          {balances.length === 0 ? <li>El saldo aparecerá cuando tenga una billetera asociada.</li> : null}
           {balances.map((item) => <li key={item.label}><span className="font-semibold">{item.label}.</span> {item.text}</li>)}
         </ul>
       </section>
@@ -162,7 +163,7 @@ export default async function DashboardPage() {
               <div key={entry.id} className="flex flex-wrap items-start justify-between gap-2 py-3 text-sm">
                 <div>
                   <p className="font-medium">{transfer?.beneficiaryName || entry.description}</p>
-                  <p className="text-xs text-teal-900/60">{formatDateTime(entry.postedAt)} · {entry.reference} · {transfer?.state || entry.kind}</p>
+                  <p className="text-xs text-teal-900/60">{formatDateTime(entry.postedAt)} · {entry.reference} · {transfer ? labelOf(transferStateLabel, transfer.state) : labelOf(kindLabel, entry.kind)}</p>
                 </div>
                 <div className="text-right">
                   <p className="font-semibold">{entry.credit !== "0.00" ? formatAmount(entry.credit) : formatAmount(entry.debit)}</p>

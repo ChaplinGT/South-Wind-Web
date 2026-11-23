@@ -17,7 +17,7 @@ export default async function RemittancesPage() {
     <div className="mx-auto max-w-xl space-y-4">
       <h1 className="font-display text-4xl">Recibir del exterior</h1>
       <p className="text-sm leading-6 text-teal-950/75">
-        Puede pedir que South Wind liquide el USDC en bolivianos (el destino es la billetera de South Wind y el abono va a su banco en Bolivia) o que Bridge deposite el USDC en su propia billetera.
+        Reciba del exterior en USDC. Puede pedir el abono en bolivianos a su banco o dejar los fondos en su billetera.
       </p>
       <section className="card">
         <h2 className="font-display text-2xl">Cuenta en Bolivia</h2>
@@ -27,7 +27,6 @@ export default async function RemittancesPage() {
         feePercent={pricing.vaDeveloperFeePercent}
         fixedFeeUsd={pricing.fixedReceiveFeeUsd}
         feeConfigEnabled={pricing.feeConfigEnabled}
-        bobMarkupPercent={pricing.bobMarkupPercent}
         profiles={profiles.map((item) => ({
           id: item.id,
           label: `${item.kind === "persona" ? "Persona" : "Empresa"} · ${item.legalName}`,

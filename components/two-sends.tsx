@@ -38,9 +38,9 @@ export function TwoSends({
         status={feeStatus}
       />
       <SendCard
-        title="2. Pago a la dirección de liquidación"
+        title="2. Pago al beneficiario"
         amount={`${paymentAmount} USDC`}
-        detail={sendFeePercent ? `Bridge retiene ${sendFeeUsdc ?? ""} USDC (${sendFeePercent} %) de este envío.` : "Envío del monto al beneficiario."}
+        detail={sendFeePercent ? `Comisión de este envío: ${sendFeeUsdc ?? ""} USDC (${sendFeePercent} %).` : "Envío del monto al beneficiario."}
         address={paymentAddress}
         qr={paymentQr}
         status={paymentStatus}

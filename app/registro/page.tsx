@@ -8,7 +8,7 @@ export default function RegisterPage() {
   return (
     <AuthPanel
       title="Crear cuenta"
-      lede="Solo nombre, correo, teléfono y contraseña. Esto crea su usuario de South Wind, no un cliente en Bridge. La verificación empieza cuando habilita un servicio."
+      lede="Indique su nombre, correo, teléfono y contraseña para abrir su cuenta."
     >
       {googleEnabled() ? <div className="mt-4"><GoogleButton /></div> : null}
       <div className="mt-6">

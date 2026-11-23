@@ -10,7 +10,7 @@ export default async function EnablePaymentsPage() {
     <div className="mx-auto max-w-xl space-y-4">
       <h1 className="font-display text-4xl">Habilitar pagos</h1>
       <p className="text-sm leading-6 text-teal-950/75">
-        Elija si opera como persona o como empresa. Después South Wind abre el enlace de verificación de Bridge y prepara la forma en que va a fondear: una billetera Bridge o USDC desde Binance, otro exchange o su propia billetera.
+        Elija si opera como persona o como empresa. Luego complete la verificación e indique si fondea con la billetera de su cuenta o con una dirección propia.
       </p>
       <EnableServiceForm />
     </div>

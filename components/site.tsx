@@ -41,7 +41,7 @@ export function PublicFooter() {
         <div className="text-sm leading-7 text-white/80">
           <p className="font-semibold text-white">Aviso</p>
           <p>
-            South Wind no es un banco. Los rieles de pago operan a través de Bridge. La conversión a bolivianos se atiende fuera de la plataforma.
+            South Wind no es un banco. La conversión a bolivianos se atiende fuera de esta plataforma.
           </p>
         </div>
       </div>

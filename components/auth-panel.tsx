@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { Logo } from "./logo";
-import { MockNotice } from "./site";
-import { isMockMode } from "@/lib/env";
 
 export function AuthPanel({
   title,
@@ -12,11 +10,10 @@ export function AuthPanel({
   lede: string;
   children: React.ReactNode;
 }) {
-  const mock = isMockMode();
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-2">
       <section className="flex flex-col justify-between bg-teal-800 px-6 py-8 text-white lg:px-12">
-        {mock ? <MockNotice /> : <span />}
+        <span />
         <Logo variant="stacked" className="mx-auto mt-8 w-full max-w-sm" />
         <p className="mx-auto mt-6 max-w-sm text-center text-sm text-white/80">Portal de clientes de South Wind Global Services LLC.</p>
       </section>

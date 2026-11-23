@@ -85,7 +85,7 @@ export async function startKyb(companyId: string, actorId: string, ip?: string |
 
 export async function approveMockKyb(bridgeCustomerId: string, actorId: string) {
   if (!isMockMode()) {
-    throw new AppError("La aprobación simulada solo está disponible en modo demostración.", 403);
+    throw new AppError("No se pudo completar la verificación.", 403);
   }
   const company = await prisma.company.findUnique({ where: { bridgeCustomerId } });
   if (!company) throw new AppError("No encontramos la empresa de esta verificación.", 404);

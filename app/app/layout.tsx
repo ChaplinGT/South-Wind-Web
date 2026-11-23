@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { PortalShell } from "@/components/shell";
 import { prisma } from "@/lib/db";
-import { isMockMode } from "@/lib/env";
 import { readSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +25,7 @@ export default async function ClientLayout({ children }: { children: React.React
     ? await prisma.company.findUnique({ where: { id: session.companyId } })
     : null;
   return (
-    <PortalShell items={items} user={{ name: company?.tradeName || session.name, email: session.email }} eyebrow="Su cuenta" mock={isMockMode()}>
+    <PortalShell items={items} user={{ name: company?.tradeName || session.name, email: session.email }} eyebrow="Su cuenta" mock={false}>
       {children}
     </PortalShell>
   );

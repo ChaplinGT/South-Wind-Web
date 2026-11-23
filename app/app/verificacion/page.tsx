@@ -17,7 +17,7 @@ export default async function VerificationPage() {
           <KybPill status={company.kybStatus} />
         </div>
         <p className="text-sm leading-6 text-teal-950/75">
-          Estado actual: {labelOf(kybLabel, company.kybStatus)}. Los clientes que ya estaban aprobados en Bridge no repiten este paso. Si su cuenta es nueva, continúe en el enlace de verificación.
+          Estado: {labelOf(kybLabel, company.kybStatus)}. Si ya estaba aprobada, no hace falta repetirla. Si es nueva, continúe la verificación.
         </p>
         {company.kybStatus === "approved" ? (
           <p className="text-sm text-emerald-700">Su empresa ya puede recibir y enviar pagos.</p>

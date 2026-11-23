@@ -125,7 +125,7 @@ describe("cliente HTTP de Bridge", () => {
       fetchImpl,
     });
     await expect(client.createCustomer({ type: "business", email: "a@b.co" }, "6d1f0b2e-1c2a-4d3e-8f90-123456789abc")).rejects.toThrow(
-      /No se pudo autenticar con Bridge/,
+      /No se pudo completar la operación/,
     );
     expect(headers?.get("Api-Key")).toBe(apiKey);
     expect(headers?.get("Idempotency-Key")).toBe("6d1f0b2e-1c2a-4d3e-8f90-123456789abc");

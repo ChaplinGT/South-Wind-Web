@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { prisma } from "@/lib/db";
-import { isMockMode } from "@/lib/env";
 import { formatAmount, formatDate } from "@/lib/format";
 import { legalEntity } from "@/lib/brand";
 
@@ -34,9 +33,6 @@ export default async function VerifyPage({ params }: { params: Promise<{ code: s
             <div><dt className="text-teal-900/60">Saldo final</dt><dd className="font-display text-2xl text-teal-900">{formatAmount(statement.closingBalance)}</dd></div>
             <div><dt className="text-teal-900/60">Código</dt><dd className="font-semibold">{statement.verificationCode}</dd></div>
           </dl>
-          {isMockMode() ? (
-            <p className="rounded-2xl bg-gold-100 px-3 py-2 text-sm text-gold-700">Entorno de demostración. Este extracto no representa fondos reales.</p>
-          ) : null}
         </div>
       </div>
     </main>

@@ -34,9 +34,9 @@ export async function GET(_request: Request, context: { params: Promise<{ kind: 
           { label: "Beneficiario", value: transfer.beneficiaryName },
           { label: "Riel", value: railLabel(transfer.rail) },
           { label: "Monto", value: formatAmount(transfer.amount) },
-          { label: "Comisión South Wind", value: formatAmount(transfer.developerFee) },
+          { label: "Comisión", value: formatAmount(transfer.developerFee) },
           { label: "Estado", value: labelOf(transferStateLabel, transfer.state) },
-          { label: "Referencia Bridge", value: transfer.bridgeTransferId || "—" },
+          { label: "Número de operación", value: transfer.reference },
           { label: "Fecha", value: formatDateTime(transfer.createdAt) },
         ],
       });

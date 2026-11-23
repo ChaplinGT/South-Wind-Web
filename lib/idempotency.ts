@@ -30,7 +30,7 @@ export async function beginIdempotency(key: string, requestHash: string): Promis
       return { kind: "start" };
     } catch {
       const again = await prisma.idempotencyRecord.findUnique({ where: { key } });
-      if (!again) throw new AppError("No se pudo reservar la clave de idempotencia.", 409);
+      if (!again) throw new AppError("No se pudo registrar la operación. Intente de nuevo.", 409);
       return classify(again, requestHash);
     }
   }
@@ -57,7 +57,7 @@ export async function finishIdempotency(key: string, statusCode: number, body: u
 
 export function assertIdempotency(result: IdempotencyStart) {
   if (result.kind === "conflict") {
-    throw new AppError("Esta clave de idempotencia ya se usó con otros datos.", 409);
+    throw new AppError("Esta operación no coincide con un envío anterior. Vuelva a intentarlo.", 409);
   }
   if (result.kind === "processing") {
     throw new AppError("Esta operación ya se está procesando. Espere un momento y no la reenvíe.", 409);

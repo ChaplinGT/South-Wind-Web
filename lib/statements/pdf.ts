@@ -174,27 +174,14 @@ function drawStatement(doc: PDFKit.PDFDocument, input: StatementPdfInput, qr: Bu
   doc.text("Confirme la autenticidad de este documento en:", 50, y + 48, { width: 340 });
   doc.fillColor(teal).text(input.verificationUrl, 50, y + 62, { width: 340 });
   doc.fillColor(muted).fontSize(7.5).text(
-    "Este extracto resume los movimientos registrados en la cuenta USDC del cliente dentro de la plataforma de South Wind Global Services LLC. South Wind no es un banco. Los rieles de pago en dólares y stablecoins operan a través de Bridge. La conversión entre USDC y bolivianos, cuando aparece, fue atendida fuera de la plataforma por un proveedor de servicios de activos virtuales.",
+    "Este extracto resume los movimientos de la cuenta USDC en South Wind Global Services LLC. South Wind no es un banco. La conversión a bolivianos, cuando aparece, se atiende fuera de esta plataforma.",
     50,
     y + 80,
     { width: 340 },
   );
   doc.image(qr, 430, y + 16, { width: 86 });
 
-  if (input.mock) {
-    doc.save();
-    doc.rotate(-32, { origin: [300, 420] });
-    doc.font("Display").fontSize(52).fillColor(teal).opacity(0.07).text("DEMOSTRACIÓN", 70, 400, {
-      lineBreak: false,
-    });
-    doc.restore();
-    doc.opacity(1).fillColor("#8C6A32").font("Body").fontSize(8).text(
-      "Entorno de demostración. Este documento no representa fondos reales ni tiene valor frente a terceros.",
-      36,
-      doc.page.height - 32,
-      { width: 523, align: "center", height: 12, lineBreak: false },
-    );
-  }
+  void input.mock;
 }
 
 function tableHeader(doc: PDFKit.PDFDocument, y: number) {
@@ -249,10 +236,5 @@ function drawReceipt(doc: PDFKit.PDFDocument, input: ReceiptPdfInput, qr: Buffer
     760,
     { width: 523 },
   );
-  if (input.mock) {
-    doc.save();
-    doc.rotate(-28, { origin: [300, 420] });
-    doc.font("Display").fontSize(48).fillColor(teal).opacity(0.08).text("DEMOSTRACIÓN", 70, 400);
-    doc.restore();
-  }
+  void input.mock;
 }

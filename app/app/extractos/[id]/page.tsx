@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { legalEntity } from "@/lib/brand";
 import { prisma } from "@/lib/db";
-import { appUrl, isMockMode } from "@/lib/env";
+import { appUrl } from "@/lib/env";
 import { formatAmount, formatDate, formatDateTime, monthLabel } from "@/lib/format";
 import { readLines } from "@/lib/services/statements";
 import { requireClient } from "@/lib/session";
@@ -90,9 +90,8 @@ export default async function StatementPreviewPage({ params }: { params: Promise
             <p className="font-semibold">Código de verificación {statement.verificationCode}</p>
             <p className="mt-1 break-all text-teal-800">{appUrl()}/verificar/{statement.verificationCode}</p>
             <p className="mt-3 text-xs leading-5 text-teal-900/60">
-              {legalEntity.name} no es un banco. Este extracto resume la cuenta USDC del cliente en la plataforma.
+              {legalEntity.name} no es un banco. Este extracto resume los movimientos de su cuenta.
             </p>
-            {isMockMode() ? <p className="mt-2 text-xs font-semibold text-gold-700">Demostración: sin valor frente a terceros.</p> : null}
           </div>
         </footer>
       </article>

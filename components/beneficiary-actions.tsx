@@ -202,8 +202,7 @@ export function BeneficiaryActions({
       <div>
         <p className="text-sm font-semibold">1. Pago directo</p>
         <p className="mt-1 text-xs leading-5 text-teal-900/70">
-          Deposite bolivianos en South Wind. South Wind compra USDC al precio de compra de Binance más el margen y lo envía a la dirección de liquidación. No hace falta una billetera Bridge.
-          Al llegar, Bridge retiene {sendFeePercent} %. Si paga desde su propia billetera, la orden muestra dos envíos: USD {fixedSendFeeUsd} en USDC a la dirección de South Wind en esta red, y el monto a la dirección de liquidación. Queda pendiente hasta que los dos estén confirmados.
+          Deposite bolivianos y nosotros enviamos el USDC a su beneficiario. Comisión: {sendFeePercent} %. También puede pagar desde su propia billetera: un envío del cargo fijo de USD {fixedSendFeeUsd} a South Wind y otro con el monto a la dirección del beneficiario. La orden queda pendiente hasta que ambos lleguen.
         </p>
         {directQuote ? (
           <div className="mt-3 space-y-2 rounded-2xl bg-teal-50 p-3 text-sm">
@@ -212,8 +211,8 @@ export function BeneficiaryActions({
             <p>Bolivianos por el USDC: {formatAmount(directQuote.principalBob, "bob")}</p>
             <p>Cargo fijo USD {directQuote.fixedFeeUsd}: {formatAmount(directQuote.fixedFeeBob, "bob")}</p>
             <p className="font-semibold">Total a depositar: {formatAmount(directQuote.bobAmount, "bob")}</p>
-            <p>Bridge retiene {directQuote.sendFeeUsdc} USDC ({directQuote.sendFeePercent} %). El beneficiario recibe cerca de {directQuote.beneficiaryUsdc} USDC.</p>
-            <p className="text-xs text-teal-900/70">Al confirmar se vuelve a leer Binance. La cotización guardada no tiene más de 60 segundos.</p>
+            <p>Comisión: {directQuote.sendFeeUsdc} USDC ({directQuote.sendFeePercent} %). El beneficiario recibe cerca de {directQuote.beneficiaryUsdc} USDC.</p>
+            <p className="text-xs text-teal-900/70">El tipo de cambio se confirma al crear la orden.</p>
             <div className="flex flex-wrap gap-2">
               <button className="btn-secondary" type="button" onClick={() => setDirectQuote(null)}>Volver</button>
               <button className="btn-primary" type="button" disabled={pending} onClick={confirmDirect}>{pending ? "Creando…" : "Confirmar orden"}</button>
@@ -226,9 +225,9 @@ export function BeneficiaryActions({
           </form>
         )}
         <div className="mt-4">
-          <p className="text-sm font-semibold">Pagar desde mi wallet</p>
+          <p className="text-sm font-semibold">Pagar desde mi billetera</p>
           <p className="mt-1 text-xs leading-5 text-teal-900/70">
-            Dos transferencias de USDC desde cualquier billetera. El cargo fijo va a South Wind y el pago va a la dirección de liquidación. No usa la billetera Bridge.
+            Dos envíos de USDC: el cargo fijo a South Wind y el pago a la dirección del beneficiario.
           </p>
           {selfOrder?.feeQr && selfOrder.paymentQr ? (
             <TwoSends
@@ -248,9 +247,9 @@ export function BeneficiaryActions({
             <div className="mt-3 space-y-2 text-sm">
               <p>Envío 1: {selfQuote.fixedFeeUsd} USDC a South Wind ({selfQuote.feeChain})</p>
               <p className="break-all text-xs">{selfQuote.feeAddress}</p>
-              <p>Envío 2: {selfQuote.usdcAmount} USDC a la dirección de liquidación</p>
+              <p>Envío 2: {selfQuote.usdcAmount} USDC a la dirección del beneficiario</p>
               <p className="break-all text-xs">{selfQuote.liquidationAddress}</p>
-              <p>Bridge retiene {selfQuote.sendFeeUsdc} USDC ({selfQuote.sendFeePercent} %) del segundo envío.</p>
+              <p>Comisión del segundo envío: {selfQuote.sendFeeUsdc} USDC ({selfQuote.sendFeePercent} %).</p>
               <div className="flex flex-wrap gap-2">
                 <button className="btn-secondary" type="button" onClick={() => setSelfQuote(null)}>Volver</button>
                 <button className="btn-primary" type="button" disabled={pending} onClick={confirmSelf}>{pending ? "Creando…" : "Crear orden"}</button>
@@ -265,17 +264,17 @@ export function BeneficiaryActions({
         </div>
       </div>
       <div>
-        <p className="text-sm font-semibold">2. Desde la billetera Bridge</p>
+        <p className="text-sm font-semibold">2. Desde su billetera en la cuenta</p>
         <p className="mt-1 text-xs leading-5 text-teal-900/70">
-          Esta vía puede tener más comisiones de procesamiento de Bridge. El developer_fee es el monto por ({sendFeePercent} % + {walletSurchargePercent} % de recargo) más USD {fixedSendFeeUsd}.
+          Comisión: {sendFeePercent} % más un recargo de {walletSurchargePercent} % y un cargo fijo de USD {fixedSendFeeUsd}.
         </p>
-        {!hasWallet ? <p className="mt-2 text-xs text-teal-900/70">Este perfil todavía no tiene billetera Bridge.</p> : null}
+        {!hasWallet ? <p className="mt-2 text-xs text-teal-900/70">Esta cuenta todavía no tiene billetera.</p> : null}
         {hasWallet && walletQuote ? (
           <div className="mt-3 space-y-2 rounded-2xl bg-teal-50 p-3 text-sm">
             <p>Monto: {formatAmount(walletQuote.usdcAmount)}</p>
             <p>Comisión {sendFeePercent} % + recargo {walletSurchargePercent} %: {formatAmount(walletQuote.variable, "usd")}</p>
             <p>Cargo fijo: {formatAmount(walletQuote.fixed, "usd")}</p>
-            <p className="font-semibold">developer_fee: {formatAmount(walletQuote.fee, "usd")}</p>
+            <p className="font-semibold">Comisión: {formatAmount(walletQuote.fee, "usd")}</p>
             <p className="font-semibold">Total a debitar: {formatAmount(walletQuote.total)}</p>
             <p>Referencia: {walletReference}</p>
             <div className="flex flex-wrap gap-2">

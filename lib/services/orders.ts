@@ -13,7 +13,7 @@ async function freshBob(markup: string) {
   try {
     return await bobReference(Number(markup), 60_000);
   } catch {
-    throw new AppError("No se pudo leer el tipo de cambio de Binance. Intente más tarde.", 503);
+    throw new AppError("No se pudo obtener el tipo de cambio. Intente más tarde.", 503);
   }
 }
 
@@ -85,7 +85,7 @@ export async function quoteSelfSend(input: { companyId: string; beneficiaryId: s
   }
   const feeAddress = (await getSouthWindWallet(beneficiary.liquidationChain)).trim();
   if (!feeAddress) {
-    throw new AppError("South Wind todavía no configuró la billetera USDC de esa red.", 409);
+    throw new AppError("Esa red todavía no está disponible. Elija otra o intente más tarde.", 409);
   }
   const pricing = await getPricing();
   return {

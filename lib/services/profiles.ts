@@ -68,14 +68,14 @@ export async function enableProfile(userId: string, input: z.infer<typeof enable
 
 export async function openReceiveAccount(userId: string, input: z.infer<typeof virtualAccountRequestSchema>) {
   const company = await prisma.company.findFirst({ where: { id: input.companyId, ownerUserId: userId } });
-  if (!company?.bridgeCustomerId) throw new AppError("Ese perfil todavía no está vinculado a Bridge.", 409);
+  if (!company?.bridgeCustomerId) throw new AppError("Ese perfil todavía no está listo. Complete la verificación.", 409);
   const bridge = getBridge();
   const pricing = await getPricing();
   let destination: Record<string, unknown>;
   let destinationMode = input.destination;
   if (input.destination === "southwind") {
     const address = await getSouthWindWallet(input.chain);
-    if (!address) throw new AppError("South Wind todavía no configuró la billetera USDC de esa red.", 409);
+    if (!address) throw new AppError("Esa red todavía no está disponible. Elija otra o intente más tarde.", 409);
     const bank = await prisma.bolivianAccount.findFirst({ where: { companyId: company.id, isDefault: true } });
     if (!bank) throw new AppError("Registre su cuenta bancaria en Bolivia antes de pedir la liquidación en bolivianos.", 422);
     destination = { currency: "usdc", payment_rail: input.chain, address };

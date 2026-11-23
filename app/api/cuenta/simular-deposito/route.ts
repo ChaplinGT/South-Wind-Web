@@ -10,7 +10,7 @@ import { simulateDepositSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
   try {
-    if (!isMockMode()) throw new AppError("La simulación de depósitos solo está disponible en modo demostración.", 403);
+    if (!isMockMode()) throw new AppError("Esta acción no está disponible.", 403);
     const session = await requireClient();
     const company = await requireCompany(session.companyId);
     const account = await prisma.virtualAccount.findFirst({ where: { companyId: company.id } });
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
         companyId: company.id,
         postedAt: new Date(),
         reference,
-        description: "Depósito USD simulado en cuenta virtual y acreditado en USDC",
+        description: "Depósito recibido en la cuenta virtual",
         debit: "0.00",
         credit: data.amount,
         kind: "deposit",

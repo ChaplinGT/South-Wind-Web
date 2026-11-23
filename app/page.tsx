@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
-import { MockNotice, PublicFooter, PublicHeader } from "@/components/site";
-import { isMockMode } from "@/lib/env";
+import { PublicFooter, PublicHeader } from "@/components/site";
 
 const services = [
   {
@@ -22,10 +21,8 @@ const services = [
 ];
 
 export default function HomePage() {
-  const mock = isMockMode();
   return (
     <div>
-      {mock ? <MockNotice /> : null}
       <PublicHeader />
       <main>
         <section className="bg-teal-800 text-white">
@@ -34,7 +31,7 @@ export default function HomePage() {
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/70">Empresas bolivianas · pagos al mundo</p>
               <h1 className="mt-4 font-display text-4xl leading-tight sm:text-6xl">Su empresa, con la claridad de un banco amigo.</h1>
               <p className="mt-5 max-w-xl text-lg leading-8 text-white/85">
-                South Wind acompaña a importadores, exportadores y pymes para cobrar y pagar en el exterior. Usted opera en este portal; nosotros hablamos con Bridge.
+                South Wind acompaña a importadores, exportadores y pymes para cobrar y pagar en el exterior.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-teal-900" href="/registro">Crear cuenta</Link>
@@ -75,8 +72,8 @@ export default function HomePage() {
         <section className="bg-white">
           <div className="mx-auto grid max-w-6xl gap-8 px-4 py-16 md:grid-cols-3">
             {[
-              ["1", "Abra su cuenta", "Registre su empresa. Si ya es cliente de Bridge con South Wind, lo vinculamos sin repetir el KYB. Si es nuevo, completa la verificación en el enlace de Bridge."],
-              ["2", "Mueva dólares", "Reciba en su cuenta virtual o envíe a un beneficiario, con la comisión a la vista antes de confirmar."],
+              ["1", "Abra su cuenta", "Registre su empresa y complete la verificación. Si ya es cliente, continuamos sin repetir ese paso."],
+              ["2", "Mueva dólares", "Reciba en su cuenta virtual o envíe a un beneficiario. Verá la comisión antes de confirmar."],
               ["3", "Pida bolivianos", "La conversión USDC ↔ bolivianos la atiende un PSAV licenciado en Bolivia. Usted deja la solicitud; nosotros le informamos el estado."],
             ].map(([step, title, text]) => (
               <div key={step}>

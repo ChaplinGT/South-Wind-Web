@@ -20,7 +20,7 @@ export default async function SendPage() {
       <div>
         <h1 className="font-display text-4xl">Enviar pago</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-teal-950/75">
-          El dinero sale de su saldo USDC hacia el beneficiario. Verá la comisión de South Wind antes de confirmar.
+          El pago sale de su saldo USDC. Revise la comisión antes de confirmar.
         </p>
       </div>
       {canTransact(company.kybStatus) ? (

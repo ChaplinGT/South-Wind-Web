@@ -158,16 +158,16 @@ export function PaymentForm({
         {form.error ? <Alert tone="bad">{form.error}</Alert> : null}
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div><dt className="text-teal-900/60">Beneficiario</dt><dd className="font-semibold">{beneficiary.accountOwnerName}</dd></div>
-          <div><dt className="text-teal-900/60">Riel</dt><dd className="font-semibold">{railLabel(beneficiary.rail)} ···· {beneficiary.accountLast4}</dd></div>
+          <div><dt className="text-teal-900/60">Vía de pago</dt><dd className="font-semibold">{railLabel(beneficiary.rail)} ···· {beneficiary.accountLast4}</dd></div>
           <div><dt className="text-teal-900/60">Monto</dt><dd className="font-semibold">{formatAmount(amount)}</dd></div>
           <div><dt className="text-teal-900/60">Comisión {sendFeePercent} % + recargo de billetera {walletSurchargePercent} %</dt><dd className="font-semibold">{formatAmount(preview.variable)}</dd></div>
           <div><dt className="text-teal-900/60">Cargo fijo</dt><dd className="font-semibold">{formatAmount(preview.fixed, "usd")}</dd></div>
-          <div><dt className="text-teal-900/60">developer_fee que se envía a Bridge</dt><dd className="font-semibold">{formatAmount(preview.fee, "usd")}</dd></div>
+          <div><dt className="text-teal-900/60">Comisión total</dt><dd className="font-semibold">{formatAmount(preview.fee, "usd")}</dd></div>
           <div><dt className="text-teal-900/60">Total a debitar</dt><dd className="font-display text-2xl text-teal-900">{formatAmount(preview.total)}</dd></div>
           <div><dt className="text-teal-900/60">Referencia</dt><dd className="font-semibold">{reference}</dd></div>
         </dl>
         <p className="text-sm text-teal-900/70">
-          El saldo disponible es {formatAmount(balance)}. En ACH y wire el monto sale de su saldo USDC. En SEPA, SPEI, Pix y Faster Payments, Bridge aplica el tipo de cambio al procesar el pago.
+          El saldo disponible es {formatAmount(balance)}. En ACH y wire el monto sale de su saldo USDC. En SEPA, SPEI, Pix y Faster Payments el tipo de cambio se aplica al procesar el pago.
         </p>
         <div className="flex flex-wrap gap-2">
           <button className="btn-secondary" type="button" onClick={() => setStep(1)}>Volver</button>
@@ -194,7 +194,7 @@ export function PaymentForm({
       <label>
         <span className="label">Monto en USDC</span>
         <input className="input" inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="1000.00" required />
-        {preview ? <p className="help">developer_fee {formatAmount(preview.fee, "usd")} · Total {formatAmount(preview.total)}</p> : <p className="help">Saldo disponible {formatAmount(balance)}</p>}
+        {preview ? <p className="help">Comisión {formatAmount(preview.fee, "usd")} · Total {formatAmount(preview.total)}</p> : <p className="help">Saldo disponible {formatAmount(balance)}</p>}
       </label>
       <label>
         <span className="label">Referencia</span>
@@ -535,7 +535,7 @@ export function SimulateDepositForm() {
   }
   return (
     <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-2">
-      <label><span className="label">Simular depósito USD (sandbox)</span><input className="input w-40" name="amount" placeholder="250.00" /></label>
+      <label><span className="label">Monto del depósito</span><input className="input w-40" name="amount" placeholder="250.00" /></label>
       <button className="btn-secondary" disabled={form.pending} type="submit">Acreditar</button>
       {form.error ? <p className="error-text w-full">{form.error}</p> : null}
     </form>
@@ -561,7 +561,7 @@ export function ApproveKybButton({ customerId }: { customerId: string }) {
   return (
     <div className="space-y-2">
       {form.error ? <Alert tone="bad">{form.error}</Alert> : null}
-      <button className="btn-primary" type="button" onClick={approve} disabled={form.pending}>Simular aprobación de KYB</button>
+      <button className="btn-primary" type="button" onClick={approve} disabled={form.pending}>Confirmar verificación</button>
     </div>
   );
 }

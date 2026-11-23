@@ -20,7 +20,7 @@ export default async function ConversionsPage() {
       <div>
         <h1 className="font-display text-4xl">Conversiones</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-teal-950/75">
-          USDC y bolivianos no se convierten solos en este portal. Deje la solicitud con su cuenta bancaria en Bolivia. El estado lo actualiza South Wind: pendiente, en proceso o pagado.
+          Indique el monto y su cuenta en Bolivia. Le informamos cuando la conversión esté pendiente, en proceso o pagada.
         </p>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">

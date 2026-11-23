@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { kybLabel, labelOf } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 
 export const metadata = { title: "Perfil" };
@@ -24,23 +25,23 @@ export default async function ProfilePage() {
       <section className="grid gap-4 md:grid-cols-2">
         <article className="card">
           <h2 className="font-display text-2xl">Persona</h2>
-          {persona ? <ProfileFacts name={persona.legalName} status={persona.kybStatus} extra={persona.bridgeCustomerId || "Sin id de Bridge"} /> : <p className="mt-2 text-sm">Aún no registró un perfil personal en Bridge.</p>}
+          {persona ? <ProfileFacts name={persona.legalName} status={labelOf(kybLabel, persona.kybStatus)} /> : <p className="mt-2 text-sm">Aún no registró un perfil personal.</p>}
         </article>
         <article className="card">
           <h2 className="font-display text-2xl">Empresa</h2>
-          {empresa ? <ProfileFacts name={empresa.legalName} status={empresa.kybStatus} extra={`NIT ${empresa.nit || "—"} · ${empresa.city}`} /> : <p className="mt-2 text-sm">Aún no registró una empresa en Bridge.</p>}
+          {empresa ? <ProfileFacts name={empresa.legalName} status={labelOf(kybLabel, empresa.kybStatus)} extra={`NIT ${empresa.nit || "—"} · ${empresa.city}`} /> : <p className="mt-2 text-sm">Aún no registró una empresa.</p>}
         </article>
       </section>
     </div>
   );
 }
 
-function ProfileFacts({ name, status, extra }: { name: string; status: string; extra: string }) {
+function ProfileFacts({ name, status, extra }: { name: string; status: string; extra?: string }) {
   return (
     <div className="mt-2 text-sm">
       <p className="font-semibold">{name}</p>
       <p>Verificación: {status}</p>
-      <p className="text-teal-900/70">{extra}</p>
+      {extra ? <p className="text-teal-900/70">{extra}</p> : null}
     </div>
   );
 }

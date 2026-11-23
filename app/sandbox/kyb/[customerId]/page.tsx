@@ -17,10 +17,9 @@ export default async function SandboxKybPage({ params }: { params: Promise<{ cus
     <main className="mx-auto max-w-lg px-4 py-12">
       <div className="card space-y-4">
         <Logo variant="horizontal" className="h-12 w-auto rounded-xl" />
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-800">Simulación de Bridge · sandbox</p>
         <h1 className="font-display text-3xl">Verificación de la empresa</h1>
         <p className="text-sm leading-6 text-teal-950/75">
-          En producción este paso ocurre en el enlace alojado por Bridge. Aquí solo se simula la aprobación para poder recorrer el portal sin una clave.
+          Confirme los datos de la empresa para continuar.
         </p>
         {company ? <p className="font-semibold">{company.legalName}</p> : <p>No encontramos la empresa de este enlace.</p>}
         {company?.kybStatus === "approved" ? <p className="text-sm text-emerald-700">La verificación ya figura como aprobada.</p> : null}

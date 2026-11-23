@@ -41,7 +41,7 @@ export function decodeHexQuantity(hex: string): bigint {
 }
 
 export async function readUsdcBalance(network: string, address: string): Promise<{ available: true; amount: string } | { available: false; reason: string }> {
-  const unsupported = "Saldo no disponible. La dirección puede ser de un exchange o la red no tiene un RPC configurado.";
+  const unsupported = "Saldo no disponible";
   try {
     if (network in USDC) {
       const rpc = rpcEnv(network);

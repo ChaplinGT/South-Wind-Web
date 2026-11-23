@@ -35,7 +35,7 @@ export function EnableServiceForm() {
   return (
     <form onSubmit={onSubmit} className="card grid gap-3">
       {error ? <Alert tone="bad">{error}</Alert> : null}
-      {link ? <Alert>Continúe la verificación de Bridge: <a className="font-semibold" href={link}>abrir enlace</a></Alert> : null}
+      {link ? <Alert>Continúe la verificación: <a className="font-semibold" href={link}>abrir enlace</a></Alert> : null}
       <label><span className="label">Perfil</span>
         <select className="input" name="kind" value={kind} onChange={(event) => setKind(event.target.value)}>
           <option value="persona">Persona</option>
@@ -60,7 +60,7 @@ export function EnableServiceForm() {
       ) : null}
       <label><span className="label">Cómo fondea los pagos</span>
         <select className="input" name="funding" value={funding} onChange={(event) => setFunding(event.target.value)}>
-          <option value="bridge_wallet">Crear una billetera Bridge</option>
+          <option value="bridge_wallet">Crear una billetera en mi cuenta</option>
           <option value="external">Enviar USDC desde una billetera externa</option>
         </select>
       </label>
@@ -84,13 +84,11 @@ export function ReceiveAccountForm({
   feePercent,
   fixedFeeUsd,
   feeConfigEnabled,
-  bobMarkupPercent,
 }: {
   profiles: { id: string; label: string; wallets: { id: string; label: string }[] }[];
   feePercent: string;
   fixedFeeUsd: string;
   feeConfigEnabled: boolean;
-  bobMarkupPercent: string;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -130,17 +128,15 @@ export function ReceiveAccountForm({
       {error ? <Alert tone="bad">{error}</Alert> : null}
       {review ? (
         <div className="space-y-2 text-sm">
-          <p className="font-semibold">Comisiones de esta cuenta, antes de abrirla</p>
-          <p>Comisión South Wind: {feePercent} % de cada depósito.</p>
-          {feeConfigEnabled ? (
-            <p>Bridge cobra además USD {fixedFeeUsd} por depósito y después el {feePercent} % sobre el resto. Ese cargo fijo aplica también si el USDC va a su billetera.</p>
-          ) : ownWallet ? (
-            <p>El cargo fijo de USD {fixedFeeUsd} no se cobra cuando el USDC llega a su billetera.</p>
+          <p className="font-semibold">Antes de abrir la cuenta</p>
+          <p>Comisión: {feePercent} % de cada depósito.</p>
+          {feeConfigEnabled || !ownWallet ? (
+            <p>Cargo fijo: USD {fixedFeeUsd} por depósito.</p>
           ) : (
-            <p>El cargo fijo de USD {fixedFeeUsd} se descuenta en la liquidación a bolivianos, porque Bridge todavía no retiene un monto fijo en la cuenta virtual.</p>
+            <p>Los depósitos a su billetera no tienen cargo fijo.</p>
           )}
           {review.destination === "southwind" ? (
-            <p>Al liquidar a bolivianos, la tasa es el precio de venta de Binance menos {bobMarkupPercent} %. Se toma en ese momento, con una cotización de menos de 60 segundos, y queda guardada en el registro.</p>
+            <p>Si pide bolivianos, el tipo de cambio se confirma al abonar en su banco.</p>
           ) : null}
           <div className="flex flex-wrap gap-2">
             <button className="btn-secondary" type="button" onClick={() => setReview(null)}>Volver</button>
@@ -149,7 +145,7 @@ export function ReceiveAccountForm({
         </div>
       ) : (
         <form onSubmit={showReview} className="grid gap-3">
-          <label><span className="label">Perfil Bridge</span>
+          <label><span className="label">Perfil</span>
             <select className="input" name="companyId">{profiles.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select>
           </label>
           <label><span className="label">Moneda de recepción</span>
@@ -163,7 +159,7 @@ export function ReceiveAccountForm({
           <label><span className="label">Destino del USDC</span>
             <select className="input" name="destination">
               <option value="southwind">South Wind liquida en bolivianos</option>
-              <option value="bridge_wallet">Mi billetera Bridge</option>
+              <option value="bridge_wallet">Mi billetera</option>
               <option value="external">Mi billetera externa registrada</option>
             </select>
           </label>

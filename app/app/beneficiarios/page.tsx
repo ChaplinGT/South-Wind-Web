@@ -45,7 +45,7 @@ export default async function BeneficiariesPage() {
       <section className="space-y-4">
         <h1 className="font-display text-4xl">Beneficiarios</h1>
         <p className="text-sm leading-6 text-teal-950/75">
-          Al registrar un beneficiario se crea su cuenta externa en Bridge y una dirección de liquidación en USDC. Esa dirección es la que recibe el pago.
+          Registre a quien va a pagar. Copie la dirección para enviarle USDC.
         </p>
         {cards.map(({ item, qr, orders }) => (
           <article key={item.id} className="card">
@@ -57,13 +57,13 @@ export default async function BeneficiariesPage() {
               <div className="mt-4 flex flex-wrap items-center gap-4">
                 <img src={qr} alt="Código QR de la dirección de liquidación" className="h-28 w-28 rounded-xl bg-white" />
                 <div className="min-w-0">
-                  <p className="text-xs text-teal-900/60">Dirección de liquidación</p>
+                  <p className="text-xs text-teal-900/60">Copie esta dirección para enviar USDC</p>
                   <p className="break-all text-sm font-medium">{item.liquidationAddress}</p>
                   <div className="mt-2"><CopyButton value={item.liquidationAddress} /></div>
                 </div>
               </div>
             ) : (
-              <p className="mt-3 text-sm text-teal-900/70">Sin dirección de liquidación.</p>
+              <p className="mt-3 text-sm text-teal-900/70">Todavía no hay una dirección para enviar USDC.</p>
             )}
             {orders.map(({ order, feeQr, paymentQr, sendFeeUsdc }) => (
               <TwoSends
