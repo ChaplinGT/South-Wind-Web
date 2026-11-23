@@ -5,6 +5,7 @@ export const PRICING_DEFAULTS = {
   sendFeePercent: "1.00",
   walletSurchargePercent: "0.25",
   fixedSendFeeUsd: "10.00",
+  wireFixedFeeUsd: "25.00",
   vaDeveloperFeePercent: "1.25",
   fixedReceiveFeeUsd: "10.00",
   feeConfigEnabled: "false",
@@ -25,6 +26,7 @@ export type PricingSettings = {
   sendFeePercent: string;
   walletSurchargePercent: string;
   fixedSendFeeUsd: string;
+  wireFixedFeeUsd: string;
   vaDeveloperFeePercent: string;
   fixedReceiveFeeUsd: string;
   feeConfigEnabled: boolean;

@@ -13,6 +13,8 @@ export async function POST(request: Request) {
       actorId: session.sub,
       beneficiaryId: data.beneficiaryId,
       amount: data.amount,
+      fiatAmount: data.fiatAmount,
+      rail: data.rail,
       reference: data.reference,
       idempotencyKey: data.idempotencyKey,
       ip: clientIp(request),

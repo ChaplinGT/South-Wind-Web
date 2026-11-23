@@ -1,6 +1,7 @@
-import { PaymentForm } from "@/components/forms";
+import { SendPaymentForm } from "@/components/send-payment";
 import { prisma } from "@/lib/db";
 import { canTransact } from "@/lib/kyb";
+import { destinationPerUsdc } from "@/lib/send-rates";
 import { companyBalance } from "@/lib/services/ledger";
 import { getPricing } from "@/lib/settings";
 import { requireClient, requireCompany } from "@/lib/session";
@@ -14,7 +15,14 @@ export default async function SendPage() {
     where: { companyId: company.id, status: "active" },
     orderBy: { createdAt: "desc" },
   });
-  const [balance, pricing] = await Promise.all([companyBalance(company.id), getPricing()]);
+  const [balance, pricing, eur, gbp, mxn, brl] = await Promise.all([
+    companyBalance(company.id),
+    getPricing(),
+    destinationPerUsdc("eur").catch(() => null),
+    destinationPerUsdc("gbp").catch(() => null),
+    destinationPerUsdc("mxn").catch(() => null),
+    destinationPerUsdc("brl").catch(() => null),
+  ]);
   return (
     <div className="space-y-6">
       <div>
@@ -24,11 +32,15 @@ export default async function SendPage() {
         </p>
       </div>
       {canTransact(company.kybStatus) ? (
-        <PaymentForm
+        <SendPaymentForm
           balance={balance}
+          hasWallet={Boolean(company.bridgeWalletId)}
           sendFeePercent={pricing.sendFeePercent}
           walletSurchargePercent={pricing.walletSurchargePercent}
-          fixedSendFeeUsd={pricing.fixedSendFeeUsd}
+          achFixedFee={pricing.fixedSendFeeUsd}
+          wireFixedFee={pricing.wireFixedFeeUsd}
+          standardFixedFee={pricing.fixedSendFeeUsd}
+          rates={{ usd: 1, eur, gbp, mxn, brl }}
           beneficiaries={beneficiaries.map((item) => ({
             id: item.id,
             nickname: item.nickname,

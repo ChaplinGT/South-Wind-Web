@@ -7,6 +7,7 @@ import { MockBridge } from "@/lib/bridge/mock";
 import { summarizeCustomers, verifyBridgeSignature } from "@/lib/bridge/webhook";
 import { demoCompanies, endingBalance } from "@/lib/demo-data";
 import { depositSummary, missingReceiveCurrencies, openAccountHref } from "@/lib/receive-summary";
+import { methodsForCurrency, payoutMode, quoteFromReceiveAmount, quoteFromSendAmount } from "@/lib/send-quote";
 import { feeAmount } from "@/lib/money";
 import { periodBounds } from "@/lib/format";
 import { compileStatement } from "@/lib/statements/build";
@@ -362,6 +363,34 @@ describe("cuentas para recibir en el inicio", () => {
     expect(home).toContain("openAccountHref");
     expect(home).not.toContain('href="/app/servicios/remesas"');
     expect(readFileSync("app/app/cuenta/page.tsx", "utf8")).toContain('id="abrir-cuenta"');
+  });
+});
+
+describe("envío con comisiones bidireccionales", () => {
+  const fees = { ach: "10.00", wire: "25.00", standard: "10.00" };
+
+  it("distingue ACH de Wire y calcula en los dos sentidos", () => {
+    const methods = methodsForCurrency("usd", fees);
+    expect(methods.map((item) => item.id)).toEqual(["ach", "wire"]);
+    expect(methods[0]?.fixedFee).toBe("10.00");
+    expect(methods[1]?.fixedFee).toBe("25.00");
+    expect(methodsForCurrency("eur", fees)).toHaveLength(1);
+    expect(methodsForCurrency("eur", fees)[0]?.label).toBe("SEPA");
+
+    const ach = quoteFromReceiveAmount({ fiatAmount: "100.00", fxPerUsd: 1, fixedFee: "10.00", percent: "1.00" });
+    expect(ach).toMatchObject({ principalUsdc: "100.00", percentFee: "1.00", fixedFee: "10.00", totalFees: "11.00", usdcTotal: "111.00" });
+    const wire = quoteFromReceiveAmount({ fiatAmount: "100.00", fxPerUsd: 1, fixedFee: "25.00", percent: "1.00" });
+    expect(wire.usdcTotal).toBe("126.00");
+
+    const back = quoteFromSendAmount({ usdcTotal: "111.00", fxPerUsd: 1, fixedFee: "10.00", percent: "1.00" });
+    expect(back?.fiatAmount).toBe("100.00");
+    expect(back?.usdcTotal).toBe("111.00");
+
+    const eur = quoteFromReceiveAmount({ fiatAmount: "92.00", fxPerUsd: 0.92, fixedFee: "10.00", percent: "1.00" });
+    expect(eur.principalUsdc).toBe("100.00");
+    expect(eur.fiatAmount).toBe("92.00");
+    expect(payoutMode(true)).toBe("wallet");
+    expect(payoutMode(false)).toBe("instructions");
   });
 });
 

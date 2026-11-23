@@ -186,6 +186,12 @@ function initialStore(): Store {
   return { customers, externalAccounts, virtualAccounts, wallets, transfers, idempotency: {} };
 }
 
+function railKeyFromBridge(paymentRail: string): RailKey {
+  if (paymentRail === "ach_same_day" || paymentRail === "ach") return "ach";
+  const found = (Object.keys(rails) as RailKey[]).find((key) => rails[key].bridgeRail === paymentRail);
+  return found ?? "ach";
+}
+
 function buildTransfer(input: {
   id: string;
   customerId: string;
@@ -501,6 +507,34 @@ export class MockBridge implements BridgeClient {
     if (replay) return replay as BridgeTransfer;
     const source = (input.source ?? {}) as Record<string, unknown>;
     const destination = (input.destination ?? {}) as Record<string, unknown>;
+    const depositRail = String(source.payment_rail || "");
+    if (depositRail && depositRail !== "bridge_wallet") {
+      const amount = String(input.amount);
+      const fee = String(input.developer_fee ?? "0.00");
+      const now = new Date().toISOString();
+      const chain = depositRail;
+      const created = buildTransfer({
+        id: randomUUID(),
+        customerId: String(input.on_behalf_of),
+        walletId: "",
+        amount,
+        fee,
+        externalAccountId: String(destination.external_account_id ?? ""),
+        rail: railKeyFromBridge(String(destination.payment_rail || "")),
+        reference: String(input.client_reference_id ?? ""),
+        state: "awaiting_funds",
+        createdAt: now,
+      });
+      created.source = { payment_rail: chain, currency: "usdc" };
+      created.source_deposit_instructions = {
+        payment_rail: chain,
+        currency: "usdc",
+        to_address: `0x${randomUUID().replace(/-/g, "").slice(0, 40)}`,
+        amount: add(amount, fee),
+      };
+      this.store.transfers.unshift(created);
+      return (await this.storeIdempotency(idempotencyKey, hash, created)) as BridgeTransfer;
+    }
     const wallet = this.store.wallets.find((item) => item.id === source.bridge_wallet_id);
     if (!wallet) throw new BridgeError("No encontramos la billetera de origen.", 422);
     const amount = String(input.amount);
@@ -512,7 +546,7 @@ export class MockBridge implements BridgeClient {
     }
     balance.balance = sub(balance.balance, total);
     const now = new Date().toISOString();
-    const rail = (Object.keys(rails) as RailKey[]).find((key) => rails[key].bridgeRail === destination.payment_rail) ?? "ach";
+    const rail = railKeyFromBridge(String(destination.payment_rail || ""));
     const created = buildTransfer({
       id: randomUUID(),
       customerId: String(input.on_behalf_of),

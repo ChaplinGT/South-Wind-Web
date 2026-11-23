@@ -42,6 +42,7 @@ async function main() {
     ["sendFeePercent", PRICING_DEFAULTS.sendFeePercent],
     ["walletSurchargePercent", PRICING_DEFAULTS.walletSurchargePercent],
     ["fixedSendFeeUsd", PRICING_DEFAULTS.fixedSendFeeUsd],
+    ["wireFixedFeeUsd", PRICING_DEFAULTS.wireFixedFeeUsd],
     ["fixedReceiveFeeUsd", PRICING_DEFAULTS.fixedReceiveFeeUsd],
     ["feeConfigEnabled", PRICING_DEFAULTS.feeConfigEnabled],
     ["bridgeOrchestrationPercent", PRICING_DEFAULTS.bridgeOrchestrationPercent],

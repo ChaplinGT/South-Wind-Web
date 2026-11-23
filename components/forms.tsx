@@ -1,10 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { quoteWalletSend } from "@/lib/pricing";
-import { formatAmount } from "@/lib/format";
-import { rails, railLabel, type RailKey } from "@/lib/rails";
+import { rails, type RailKey } from "@/lib/rails";
 import { directionLabel } from "@/lib/labels";
 import { FieldError, Alert } from "./ui";
 
@@ -77,131 +75,6 @@ export function GoogleButton() {
     <a className="btn-secondary w-full" href="/api/auth/google">
       Continuar con Google
     </a>
-  );
-}
-
-export function PaymentForm({
-  beneficiaries,
-  sendFeePercent,
-  walletSurchargePercent,
-  fixedSendFeeUsd,
-  balance,
-}: {
-  beneficiaries: { id: string; nickname: string; accountOwnerName: string; rail: string; accountLast4: string; bankName: string; currency: string }[];
-  sendFeePercent: string;
-  walletSurchargePercent: string;
-  fixedSendFeeUsd: string;
-  balance: string;
-}) {
-  const [step, setStep] = useState(1);
-  const [beneficiaryId, setBeneficiaryId] = useState(beneficiaries[0]?.id ?? "");
-  const [amount, setAmount] = useState("");
-  const [reference, setReference] = useState("");
-  const [idempotencyKey, setIdempotencyKey] = useState("");
-  const [done, setDone] = useState<string | null>(null);
-  const form = useFormError();
-  const beneficiary = beneficiaries.find((item) => item.id === beneficiaryId);
-  const preview = useMemo(() => {
-    if (!/^\d+(\.\d{1,2})?$/.test(amount) || Number(amount) <= 0) return null;
-    try {
-      return quoteWalletSend(amount, sendFeePercent, walletSurchargePercent, fixedSendFeeUsd);
-    } catch {
-      return null;
-    }
-  }, [amount, sendFeePercent, walletSurchargePercent, fixedSendFeeUsd]);
-
-  function review(event: React.FormEvent) {
-    event.preventDefault();
-    if (!beneficiary || !preview) {
-      form.setError("Revise el beneficiario y el monto.");
-      return;
-    }
-    form.setError(null);
-    if (!idempotencyKey) setIdempotencyKey(crypto.randomUUID());
-    setStep(2);
-  }
-
-  async function confirm() {
-    form.setPending(true);
-    form.setError(null);
-    try {
-      const result = await postJson("/api/pagos", { beneficiaryId, amount, reference, idempotencyKey });
-      setDone(result.transferId ?? null);
-      setStep(3);
-    } catch (error) {
-      form.setError((error as Error).message);
-    } finally {
-      form.setPending(false);
-    }
-  }
-
-  if (beneficiaries.length === 0) {
-    return <Alert>Agregue un beneficiario antes de enviar un pago.</Alert>;
-  }
-  if (step === 3 && done) {
-    return (
-      <div className="card space-y-3">
-        <h2 className="font-display text-3xl">Pago registrado</h2>
-        <p className="text-sm text-teal-900/80">La instrucción quedó registrada. Puede descargar el comprobante o volver a sus movimientos.</p>
-        <div className="flex flex-wrap gap-2">
-          <a className="btn-primary" href={`/api/comprobantes/pago/${done}`}>Descargar comprobante</a>
-          <a className="btn-secondary" href="/app/movimientos">Ver movimientos</a>
-        </div>
-      </div>
-    );
-  }
-  if (step === 2 && beneficiary && preview) {
-    return (
-      <div className="card space-y-4">
-        <p className="text-xs uppercase tracking-[0.16em] text-teal-800">Confirmación</p>
-        <h2 className="font-display text-3xl">Revise el pago antes de enviarlo</h2>
-        {form.error ? <Alert tone="bad">{form.error}</Alert> : null}
-        <dl className="grid gap-3 text-sm sm:grid-cols-2">
-          <div><dt className="text-teal-900/60">Beneficiario</dt><dd className="font-semibold">{beneficiary.accountOwnerName}</dd></div>
-          <div><dt className="text-teal-900/60">Vía de pago</dt><dd className="font-semibold">{railLabel(beneficiary.rail)} ···· {beneficiary.accountLast4}</dd></div>
-          <div><dt className="text-teal-900/60">Monto</dt><dd className="font-semibold">{formatAmount(amount)}</dd></div>
-          <div><dt className="text-teal-900/60">Comisión {sendFeePercent} % + recargo de billetera {walletSurchargePercent} %</dt><dd className="font-semibold">{formatAmount(preview.variable)}</dd></div>
-          <div><dt className="text-teal-900/60">Cargo fijo</dt><dd className="font-semibold">{formatAmount(preview.fixed, "usd")}</dd></div>
-          <div><dt className="text-teal-900/60">Comisión total</dt><dd className="font-semibold">{formatAmount(preview.fee, "usd")}</dd></div>
-          <div><dt className="text-teal-900/60">Total a debitar</dt><dd className="font-display text-2xl text-teal-900">{formatAmount(preview.total)}</dd></div>
-          <div><dt className="text-teal-900/60">Referencia</dt><dd className="font-semibold">{reference}</dd></div>
-        </dl>
-        <p className="text-sm text-teal-900/70">
-          El saldo disponible es {formatAmount(balance)}. En ACH y wire el monto sale de su saldo USDC. En SEPA, SPEI, Pix y Faster Payments el tipo de cambio se aplica al procesar el pago.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button className="btn-secondary" type="button" onClick={() => setStep(1)}>Volver</button>
-          <button className="btn-primary" type="button" disabled={form.pending} onClick={confirm}>
-            {form.pending ? "Enviando…" : "Confirmar pago"}
-          </button>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <form onSubmit={review} className="card grid gap-4">
-      {form.error ? <Alert tone="bad">{form.error}</Alert> : null}
-      <label>
-        <span className="label">Beneficiario</span>
-        <select className="input" value={beneficiaryId} onChange={(event) => setBeneficiaryId(event.target.value)}>
-          {beneficiaries.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.nickname} · {railLabel(item.rail)} ···· {item.accountLast4}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <span className="label">Monto en USDC</span>
-        <input className="input" inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="1000.00" required />
-        {preview ? <p className="help">Comisión {formatAmount(preview.fee, "usd")} · Total {formatAmount(preview.total)}</p> : <p className="help">Saldo disponible {formatAmount(balance)}</p>}
-      </label>
-      <label>
-        <span className="label">Referencia</span>
-        <input className="input" value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Factura 1044" required />
-      </label>
-      <button className="btn-primary" type="submit">Continuar a la confirmación</button>
-    </form>
   );
 }
 

@@ -51,6 +51,55 @@ export async function renderStatementPdf(input: StatementPdfInput): Promise<Buff
   return toBuffer((doc) => drawStatement(doc, input, qr));
 }
 
+export type PaymentInstructionsPdfInput = {
+  blockchain: string;
+  address: string;
+  amount: string;
+  currency: string;
+  bankName: string;
+  accountOwnerName: string;
+  railLabel: string;
+  destinationCurrency: string;
+  accountLast4: string;
+  reference: string;
+};
+
+export async function renderPaymentInstructionsPdf(input: PaymentInstructionsPdfInput): Promise<Buffer> {
+  const qr = await QRCode.toBuffer(input.address, { margin: 0, width: 180, color: { dark: deep, light: "#FFFFFF" } });
+  return toBuffer((doc) => {
+    const logo = path.join(process.cwd(), "public", "brand", "logo-horizontal.png");
+    doc.rect(0, 0, doc.page.width, 86).fill(teal);
+    if (fs.existsSync(logo)) doc.image(logo, 28, 16, { height: 54 });
+    doc.fillColor("#FFFFFF").font("Display").fontSize(13).text("INSTRUCCIONES DE PAGO", 280, 34, { width: 280, align: "right" });
+    doc.fillColor(ink).font("Display").fontSize(18).text("Envíe USDC", 36, 110);
+    doc.font("Body").fontSize(10).fillColor(muted).text(`Referencia ${input.reference}`, 36, 136);
+    const rows: [string, string][] = [
+      ["Blockchain", input.blockchain],
+      ["Dirección de depósito", input.address],
+      ["Moneda", input.currency],
+      ["Monto exacto", `${input.amount} USDC`],
+      ["Beneficiario", input.accountOwnerName],
+      ["Banco", input.bankName],
+      ["Tipo de transferencia", input.railLabel],
+      ["Moneda de destino", input.destinationCurrency],
+      ["Cuenta", `···· ${input.accountLast4}`],
+    ];
+    let y = 168;
+    for (const [label, value] of rows) {
+      doc.fillColor(muted).font("Body").fontSize(8).text(label, 36, y);
+      doc.fillColor(ink).font("Body").fontSize(10).text(value, 180, y - 1, { width: 250 });
+      y += 28;
+    }
+    doc.image(qr, 430, 168, { width: 120 });
+    doc.fillColor(muted).font("Body").fontSize(8).text(
+      "South Wind Global Services LLC no es un banco. Envíe el monto exacto a la dirección indicada.",
+      36,
+      760,
+      { width: 523 },
+    );
+  });
+}
+
 export async function renderReceiptPdf(input: ReceiptPdfInput): Promise<Buffer> {
   const qr = input.verificationUrl
     ? await QRCode.toBuffer(input.verificationUrl, { margin: 0, width: 140, color: { dark: deep, light: "#FFFFFF" } })

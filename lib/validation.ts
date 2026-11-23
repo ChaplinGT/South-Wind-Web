@@ -75,6 +75,7 @@ export const pricingSchema = z.object({
   sendFeePercent: percentField,
   walletSurchargePercent: percentField,
   fixedSendFeeUsd: moneyField,
+  wireFixedFeeUsd: moneyField,
   vaDeveloperFeePercent: percentField,
   fixedReceiveFeeUsd: moneyField,
   feeConfigEnabled: z.enum(["true", "false"]),
@@ -174,6 +175,8 @@ export const beneficiarySchema = z
 export const paymentSchema = z.object({
   beneficiaryId: z.string().min(1, "Seleccione un beneficiario."),
   amount,
+  fiatAmount: z.string().trim().optional().default(""),
+  rail: z.string().trim().optional().default(""),
   reference: z.string().trim().min(2, "Ingrese una referencia.").max(140, "La referencia es demasiado larga."),
   idempotencyKey: z.string().uuid("La clave de idempotencia no es válida."),
 });
