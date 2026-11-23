@@ -14,12 +14,12 @@ export async function middleware(request: NextRequest) {
     if (!session) return NextResponse.redirect(new URL("/ingresar", request.url));
     if (session.role !== "admin") return NextResponse.redirect(new URL("/app", request.url));
   }
-  if ((path === "/ingresar" || path === "/abrir-cuenta") && session) {
+  if ((path === "/ingresar" || path === "/registro" || path === "/abrir-cuenta") && session) {
     return NextResponse.redirect(new URL(session.role === "admin" ? "/admin" : "/app", request.url));
   }
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/admin/:path*", "/ingresar", "/abrir-cuenta"],
+  matcher: ["/app/:path*", "/admin/:path*", "/ingresar", "/registro", "/abrir-cuenta"],
 };

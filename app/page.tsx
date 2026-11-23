@@ -37,7 +37,7 @@ export default function HomePage() {
                 South Wind acompaña a importadores, exportadores y pymes para cobrar y pagar en el exterior. Usted opera en este portal; nosotros hablamos con Bridge.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Link className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-teal-900" href="/abrir-cuenta">Abrir una cuenta</Link>
+                <Link className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-teal-900" href="/registro">Crear cuenta</Link>
                 <Link className="rounded-full px-5 py-3 text-sm font-semibold text-white ring-1 ring-white/40" href="/ingresar">Ya soy cliente</Link>
               </div>
             </div>
@@ -92,7 +92,7 @@ export default function HomePage() {
           <div className="rounded-[2rem] bg-teal-900 px-6 py-10 text-white sm:px-10">
             <h2 className="font-display text-3xl">Hecho para presentarse con formalidad</h2>
             <p className="mt-3 max-w-2xl text-white/80">Extractos de cuenta con saldo inicial y final, comprobantes por operación y un código para verificar que el documento salió de South Wind.</p>
-            <Link className="mt-6 inline-flex rounded-full bg-white px-5 py-3 text-sm font-semibold text-teal-900" href="/abrir-cuenta">Empezar</Link>
+            <Link className="mt-6 inline-flex rounded-full bg-white px-5 py-3 text-sm font-semibold text-teal-900" href="/registro">Crear cuenta</Link>
           </div>
         </section>
       </main>

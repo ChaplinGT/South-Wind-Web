@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { createHash, createSign, generateKeyPairSync } from "crypto";
 import { afterEach, describe, expect, it } from "vitest";
@@ -78,6 +79,23 @@ describe("entorno", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toMatch(/omite el seed/);
     expect(`${result.stdout}${result.stderr}`).not.toMatch(/VientoSur-2026/);
+  });
+
+  it("separa el ingreso del registro", () => {
+    const login = readFileSync("app/ingresar/page.tsx", "utf8");
+    const signup = readFileSync("app/registro/page.tsx", "utf8");
+    const middleware = readFileSync("middleware.ts", "utf8");
+    expect(login).not.toContain("RegisterForm");
+    expect(login).toContain('href="/registro"');
+    expect(login).toContain("Crear cuenta");
+    expect(signup).toContain("RegisterForm");
+    expect(signup).toContain('href="/ingresar"');
+    expect(signup).not.toContain('action="/api/auth/login"');
+    expect(readFileSync("app/abrir-cuenta/page.tsx", "utf8")).toContain('"/registro"');
+    expect(middleware).toContain('"/registro"');
+    expect(readFileSync("components/site.tsx", "utf8")).toContain('href="/registro"');
+    expect(readFileSync("app/page.tsx", "utf8")).toContain('href="/registro"');
+    expect(readFileSync("app/api/auth/logout/route.ts", "utf8")).toContain('"/ingresar"');
   });
 
   it("arma la URL pública con APP_URL y, si falta, con VERCEL_URL", () => {

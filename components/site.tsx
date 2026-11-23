@@ -13,8 +13,8 @@ export function PublicHeader() {
           <Link href="/ingresar" className="btn-ghost px-3 sm:px-5">
             Ingresar
           </Link>
-          <Link href="/abrir-cuenta" className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-teal-900">
-            Abrir cuenta
+          <Link href="/registro" className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-teal-900">
+            Crear cuenta
           </Link>
         </nav>
       </div>

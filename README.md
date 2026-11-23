@@ -26,7 +26,7 @@ En Google Cloud, credenciales OAuth de tipo aplicación web. URI de redirección
 - `https://portal.southwindglobalservices.com/api/auth/google/callback`
 - en local, `http://localhost:3000/api/auth/google/callback`
 
-Copie el id y el secreto a `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`. Si no están, el ingreso solo muestra correo y contraseña. El botón es para la cuenta de South Wind, no para abrir un cliente en Bridge.
+Copie el id y el secreto a `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`. Si no están, `/ingresar` y `/registro` solo muestran correo y contraseña. El botón es para la cuenta de South Wind, no para abrir un cliente en Bridge. El alta está en `/registro`; `/abrir-cuenta` redirige allí.
 
 ## Marca
 
