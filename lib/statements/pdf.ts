@@ -62,6 +62,7 @@ export type PaymentInstructionsPdfInput = {
   destinationCurrency: string;
   accountLast4: string;
   reference: string;
+  destinationLines?: { label: string; value: string }[];
 };
 
 export async function renderPaymentInstructionsPdf(input: PaymentInstructionsPdfInput): Promise<Buffer> {
@@ -78,11 +79,15 @@ export async function renderPaymentInstructionsPdf(input: PaymentInstructionsPdf
       ["Dirección de depósito", input.address],
       ["Moneda", input.currency],
       ["Monto exacto", `${input.amount} USDC`],
-      ["Beneficiario", input.accountOwnerName],
-      ["Banco", input.bankName],
-      ["Tipo de transferencia", input.railLabel],
-      ["Moneda de destino", input.destinationCurrency],
-      ["Cuenta", `···· ${input.accountLast4}`],
+      ...(input.destinationLines?.length
+        ? input.destinationLines.map((row) => [row.label, row.value] as [string, string])
+        : [
+            ["Beneficiario", input.accountOwnerName],
+            ["Banco", input.bankName],
+            ["Tipo de transferencia", input.railLabel],
+            ["Moneda de destino", input.destinationCurrency],
+            ["Cuenta", `···· ${input.accountLast4}`],
+          ] as [string, string][]),
     ];
     let y = 168;
     for (const [label, value] of rows) {

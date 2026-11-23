@@ -7,6 +7,7 @@ import { MockBridge } from "@/lib/bridge/mock";
 import { summarizeCustomers, verifyBridgeSignature } from "@/lib/bridge/webhook";
 import { demoCompanies, endingBalance } from "@/lib/demo-data";
 import { depositSummary, missingReceiveCurrencies, openAccountHref } from "@/lib/receive-summary";
+import { destinationRows } from "@/lib/beneficiary-bank";
 import { methodsForCurrency, payoutMode, quoteFromReceiveAmount, quoteFromSendAmount } from "@/lib/send-quote";
 import { feeAmount } from "@/lib/money";
 import { periodBounds } from "@/lib/format";
@@ -391,6 +392,39 @@ describe("envío con comisiones bidireccionales", () => {
     expect(eur.fiatAmount).toBe("92.00");
     expect(payoutMode(true)).toBe("wallet");
     expect(payoutMode(false)).toBe("instructions");
+    const us = destinationRows({
+      owner: "Pacific Goods LLC",
+      bank: "First Harbor Bank",
+      currency: "usd",
+      methodLabel: "ACH en el mismo día",
+      rail: "ach",
+      last4: "4321",
+      details: { accountNumber: "123456789", routingNumber: "021000021", accountKind: "checking" },
+    });
+    expect(us.map((row) => row.label)).toEqual(["Titular", "Banco", "Número de cuenta", "Tipo de cuenta", "Routing number", "Moneda y tipo"]);
+    expect(us.find((row) => row.label === "Número de cuenta")?.value).toBe("123456789");
+    expect(us.find((row) => row.label === "Tipo de cuenta")?.value).toBe("Cuenta corriente");
+    const sepa = destinationRows({
+      owner: "Atelier Nord",
+      bank: "Banque Example",
+      currency: "eur",
+      methodLabel: "SEPA",
+      rail: "sepa",
+      last4: "3000",
+      details: { iban: "DE89370400440532013000", bic: "COBADEFFXXX" },
+    });
+    expect(sepa.find((row) => row.label === "IBAN")?.value).toBe("DE89370400440532013000");
+    expect(sepa.find((row) => row.label === "BIC")?.value).toBe("COBADEFFXXX");
+    const masked = destinationRows({
+      owner: "Casa Andina",
+      bank: "Banco",
+      currency: "usd",
+      methodLabel: "Wire",
+      rail: "wire",
+      last4: "1001",
+      details: {},
+    });
+    expect(masked.find((row) => row.label === "Número de cuenta")?.value).toBe("****1001");
   });
 });
 

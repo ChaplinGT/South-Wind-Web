@@ -1,3 +1,4 @@
+import { parseBankDetails } from "@/lib/beneficiary-bank";
 import { SendPaymentForm } from "@/components/send-payment";
 import { prisma } from "@/lib/db";
 import { canTransact } from "@/lib/kyb";
@@ -49,6 +50,7 @@ export default async function SendPage() {
             accountLast4: item.accountLast4,
             bankName: item.bankName,
             currency: item.currency,
+            details: parseBankDetails(item.detailsJson),
           }))}
         />
       ) : (

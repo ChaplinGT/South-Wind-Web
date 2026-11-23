@@ -10,6 +10,7 @@ import {
   type SendBreakdown,
   type TransferChoice,
 } from "@/lib/send-quote";
+import { destinationRows, parseBankDetails, type StoredBankDetails } from "@/lib/beneficiary-bank";
 import { CopyButton } from "./copy-button";
 import { Alert } from "./ui";
 
@@ -21,6 +22,7 @@ type Beneficiary = {
   accountLast4: string;
   bankName: string;
   currency: string;
+  details: StoredBankDetails;
 };
 
 type Instructions = {
@@ -165,11 +167,12 @@ export function SendPaymentForm({
 
   if (beneficiaries.length === 0) return <Alert>Agregue un beneficiario antes de enviar un pago.</Alert>;
 
-  if (step === "done" && doneId) {
+  if (step === "done" && doneId && beneficiary && method) {
     return (
       <div className="card space-y-3">
         <h2 className="font-display text-3xl">Pago registrado</h2>
         <p className="text-sm text-teal-900/80">La instrucción quedó registrada. Puede descargar el comprobante o volver a sus movimientos.</p>
+        <DestinationBlock beneficiary={beneficiary} methodLabel={method.label} />
         <div className="flex flex-wrap gap-2">
           <a className="btn-primary" href={`/api/comprobantes/pago/${doneId}`}>Descargar comprobante</a>
           <a className="btn-secondary" href="/app/movimientos">Ver movimientos</a>
@@ -196,9 +199,7 @@ export function SendPaymentForm({
               <div><dt className="text-teal-900/60">Monto exacto</dt><dd className="font-semibold">{formatAmount(instructions.amount)}</dd></div>
             </dl>
           </div>
-          <p className="text-sm text-teal-900/80">
-            {instructions.bankName} · {instructions.accountOwnerName} · {instructions.railLabel} · {instructions.destinationCurrency} · ···· {instructions.accountLast4}
-          </p>
+          <DestinationBlock beneficiary={beneficiary} methodLabel={method.label} />
           {instructions.transferId ? <a className="btn-secondary" href={`/api/instrucciones/${instructions.transferId}/pdf`}>Descargar instrucciones (PDF)</a> : null}
         </section>
         <section className="space-y-2 border-t border-teal-100 pt-4">
@@ -310,15 +311,36 @@ function Summary({
 }) {
   return (
     <div className="space-y-3 text-sm">
+      <DestinationBlock beneficiary={beneficiary} methodLabel={method.label} />
       <dl className="grid gap-3 sm:grid-cols-2">
-        <div><dt className="text-teal-900/60">Beneficiario</dt><dd className="font-semibold">{beneficiary.accountOwnerName}</dd></div>
-        <div><dt className="text-teal-900/60">Tipo de transferencia</dt><dd className="font-semibold">{method.label}</dd></div>
         <div><dt className="text-teal-900/60">Monto a recibir</dt><dd className="font-semibold">{formatAmount(quote.fiatAmount, method.currency)}</dd></div>
         <div><dt className="text-teal-900/60">Monto total a enviar</dt><dd className="font-display text-2xl text-teal-900">{formatAmount(quote.usdcTotal)}</dd></div>
         <div><dt className="text-teal-900/60">Referencia</dt><dd className="font-semibold">{reference}</dd></div>
       </dl>
       <Breakdown method={method} quote={quote} />
     </div>
+  );
+}
+
+function DestinationBlock({ beneficiary, methodLabel }: { beneficiary: Beneficiary; methodLabel: string }) {
+  const rows = destinationRows({
+    owner: beneficiary.accountOwnerName,
+    bank: beneficiary.bankName,
+    currency: beneficiary.currency,
+    methodLabel,
+    rail: beneficiary.rail,
+    last4: beneficiary.accountLast4,
+    details: beneficiary.details,
+  });
+  return (
+    <dl className="grid gap-3 rounded-2xl bg-white p-3 ring-1 ring-teal-100 sm:grid-cols-2">
+      {rows.map((row) => (
+        <div key={row.label}>
+          <dt className="text-teal-900/60">{row.label}</dt>
+          <dd className="break-all font-semibold">{row.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

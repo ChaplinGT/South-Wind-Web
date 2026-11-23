@@ -26,6 +26,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         railLabel?: string;
         destinationCurrency?: string;
         accountLast4?: string;
+        destinationLines?: { label: string; value: string }[];
       };
     };
     const instructions = parsed.clientInstructions;
@@ -41,6 +42,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       destinationCurrency: instructions.destinationCurrency || transfer.currency.toUpperCase(),
       accountLast4: instructions.accountLast4 || "—",
       reference: transfer.reference,
+      destinationLines: instructions.destinationLines,
     });
     return new NextResponse(new Uint8Array(pdf), {
       headers: {

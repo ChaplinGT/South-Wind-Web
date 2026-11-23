@@ -8,6 +8,7 @@ import { canTransact } from "../kyb";
 import { cmp, fromCents, toCents } from "../money";
 import { quoteWalletSend } from "../pricing";
 import { isRail, rails } from "../rails";
+import { destinationRows, parseBankDetails } from "../beneficiary-bank";
 import { bobBuyPerUsdc, destinationPerUsdc } from "../send-rates";
 import {
   combinedSendPercent,
@@ -305,6 +306,15 @@ async function createQuotedPayout(input: {
       deposit = null;
     }
   }
+  const destinationLines = destinationRows({
+    owner: beneficiary.accountOwnerName,
+    bank: beneficiary.bankName,
+    currency: method.currency,
+    methodLabel: method.label,
+    rail: beneficiary.rail,
+    last4: beneficiary.accountLast4,
+    details: parseBankDetails(beneficiary.detailsJson),
+  });
   const address = deposit?.to_address || beneficiary.liquidationAddress || "";
   const blockchain = deposit?.payment_rail || beneficiary.liquidationChain || chain;
   const sendAmount = deposit?.amount || quoted.usdcTotal;
@@ -330,6 +340,7 @@ async function createQuotedPayout(input: {
     fxPerUsd: method.currency === "usd" ? null : fxPerUsd,
     bobAmount,
     bobPayee: BOB_DEPOSIT_BENEFICIARY,
+    destinationLines,
     qr: await QRCode.toDataURL(address, { margin: 1, width: 180 }),
   };
   const transfer = await prisma.transfer.create({
