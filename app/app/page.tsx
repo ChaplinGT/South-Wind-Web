@@ -3,10 +3,11 @@ import { prisma } from "@/lib/db";
 import { formatAmount, formatDateTime } from "@/lib/format";
 import { getBridge } from "@/lib/bridge";
 import { readUsdcBalance } from "@/lib/chains";
-import { kybLabel, kindLabel, labelOf, transferStateLabel } from "@/lib/labels";
+import { kindLabel, labelOf, transferStateLabel } from "@/lib/labels";
+import { canTransact } from "@/lib/kyb";
 import { bobReference, fxWithMarkup } from "@/lib/rates";
+import { accountStatusLabel, depositSummary, isActiveVirtualAccount, missingReceiveCurrencies } from "@/lib/receive-summary";
 import { getBobMarkupPercent, getFxMarkupPercent } from "@/lib/settings";
-import { railsFromEndorsements } from "@/lib/service-rails";
 import { requireUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -44,17 +45,6 @@ export default async function DashboardPage() {
         return { code, ...fxWithMarkup(quote.buy_rate ?? null, quote.sell_rate ?? null, Number(fxMarkup)), at: new Date().toISOString() };
       } catch {
         return { code, buy: null, sell: null, at: null as string | null };
-      }
-    }),
-  );
-  const railNotes = await Promise.all(
-    profiles.map(async (profile) => {
-      if (!profile.bridgeCustomerId) return { id: profile.id, rails: [] as string[] };
-      try {
-        const remote = await getBridge().getCustomer(profile.bridgeCustomerId);
-        return { id: profile.id, rails: railsFromEndorsements(remote.endorsements) };
-      } catch {
-        return { id: profile.id, rails: [] as string[] };
       }
     }),
   );
@@ -109,28 +99,53 @@ export default async function DashboardPage() {
         </article>
       </section>
       <section className="grid gap-4 md:grid-cols-2">
-        <article className="card space-y-3">
-          <h2 className="font-display text-2xl">Pagos transfronterizos</h2>
-          {profiles.length === 0 ? <p className="text-sm">Todavía no hay un perfil de persona ni de empresa.</p> : null}
-          {profiles.map((profile) => {
-            const rails = railNotes.find((item) => item.id === profile.id)?.rails ?? [];
-            return (
-              <div key={profile.id}>
-                <p className="font-semibold">{profile.kind === "persona" ? "Persona" : "Empresa"} · {profile.legalName}</p>
-                <p className="text-sm text-teal-900/70">{rails.length ? rails.join(" · ") : "Sin vías de pago habilitadas"} · verificación {labelOf(kybLabel, profile.kybStatus)}</p>
-              </div>
-            );
-          })}
-          <Link className="btn-primary" href="/app/servicios/pagos">Habilitar o continuar</Link>
-        </article>
-        <article className="card space-y-3">
-          <h2 className="font-display text-2xl">Remesas transfronterizas</h2>
-          <p className="text-sm text-teal-900/70">Reciba dólares, euros y otras monedas, y acredítelos en USDC.</p>
-          {profiles.flatMap((profile) => profile.virtualAccounts).map((account) => (
-            <p key={account.id} className="text-sm">{account.currency.toUpperCase()} · {account.status}</p>
-          ))}
-          <Link className="btn-secondary" href="/app/servicios/remesas">Abrir cuenta virtual</Link>
-        </article>
+        {(profiles.length === 0 ? [null] : profiles).map((profile) => {
+          const enabled = profile ? canTransact(profile.kybStatus) : false;
+          const accounts = (profile?.virtualAccounts ?? []).filter((account) => isActiveVirtualAccount(account.status));
+          const missing = missingReceiveCurrencies(accounts.map((account) => account.currency));
+          const profileLabel = profile ? (profile.kind === "persona" ? "Persona" : "Empresa") : "";
+          return (
+            <div key={profile?.id ?? "nuevo"} className="contents">
+              <article className="card flex flex-col gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="font-display text-2xl">Pagos</h2>
+                  <StatusBadge enabled={enabled} />
+                </div>
+                {profiles.length > 1 && profile ? <p className="text-sm font-medium text-teal-900/70">{profileLabel} · {profile.legalName}</p> : null}
+                {enabled ? (
+                  <Link className="btn-primary w-full sm:w-auto" href="/app/enviar">Enviar pago</Link>
+                ) : (
+                  <Link className="btn-primary w-full sm:w-auto" href="/app/servicios/pagos">Habilitar</Link>
+                )}
+              </article>
+              <article className="card flex flex-col gap-3">
+                <h2 className="font-display text-2xl">Cuentas para recibir</h2>
+                {profiles.length > 1 && profile ? <p className="text-sm font-medium text-teal-900/70">{profileLabel} · {profile.legalName}</p> : null}
+                {accounts.length === 0 ? <p className="text-sm text-teal-900/70">Aún no tiene una cuenta para recibir.</p> : null}
+                <ul className="space-y-2">
+                  {accounts.map((account) => {
+                    const summary = depositSummary(account.instructionsJson, account.currency);
+                    return (
+                      <li key={account.id}>
+                        <Link href="/app/cuenta" className="block rounded-2xl border border-teal-100 px-3 py-3 hover:bg-teal-50">
+                          <p className="font-semibold">{summary.currency} · {accountStatusLabel(account.status)}</p>
+                          {summary.bankName ? <p className="mt-1 text-sm text-teal-900/80">{summary.bankName}</p> : null}
+                          {summary.accountNumber ? <p className="text-sm tabular-nums tracking-wide">{summary.accountNumber}</p> : null}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {accounts.length === 0 ? (
+                  <Link className="btn-primary w-full sm:w-auto" href="/app/servicios/remesas">Abrir cuenta</Link>
+                ) : null}
+                {accounts.length > 0 && missing.length > 0 ? (
+                  <Link className="btn-secondary w-full sm:w-auto" href="/app/servicios/remesas">Abrir cuenta en otra moneda</Link>
+                ) : null}
+              </article>
+            </div>
+          );
+        })}
       </section>
       <section className="overflow-hidden rounded-[2rem] bg-teal-800 px-6 py-6 text-white">
         <p className="text-sm text-white/70">Acciones</p>
@@ -171,6 +186,14 @@ export default async function DashboardPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+function StatusBadge({ enabled }: { enabled: boolean }) {
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${enabled ? "bg-emerald-100 text-emerald-800" : "bg-teal-100 text-teal-800"}`}>
+      {enabled ? "Habilitado" : "No habilitado"}
+    </span>
   );
 }
 

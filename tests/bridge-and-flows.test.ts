@@ -6,6 +6,7 @@ import { BridgeHttpClient } from "@/lib/bridge/http";
 import { MockBridge } from "@/lib/bridge/mock";
 import { summarizeCustomers, verifyBridgeSignature } from "@/lib/bridge/webhook";
 import { demoCompanies, endingBalance } from "@/lib/demo-data";
+import { depositSummary, missingReceiveCurrencies } from "@/lib/receive-summary";
 import { feeAmount } from "@/lib/money";
 import { periodBounds } from "@/lib/format";
 import { compileStatement } from "@/lib/statements/build";
@@ -335,6 +336,26 @@ describe("extractos, comisiones y validación", () => {
     });
     expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
     expect(pdf.length).toBeGreaterThan(1000);
+  });
+});
+
+describe("cuentas para recibir en el inicio", () => {
+  it("muestra USD, Lead Bank y el número de la cuenta de demostración", () => {
+    const andina = demoCompanies.find((company) => company.email === "maria.quispe@importadora-andina.example");
+    expect(andina).toBeTruthy();
+    const summary = depositSummary(
+      JSON.stringify({
+        source_deposit_instructions: {
+          currency: "usd",
+          bank_name: "Lead Bank",
+          bank_account_number: andina?.accountNumber,
+        },
+      }),
+      "usd",
+    );
+    expect(summary).toEqual({ currency: "USD", bankName: "Lead Bank", accountNumber: "2000001001" });
+    expect(missingReceiveCurrencies(["usd"])).toEqual(["eur", "mxn", "brl"]);
+    expect(missingReceiveCurrencies(["usd", "eur", "mxn", "brl"])).toEqual([]);
   });
 });
 
