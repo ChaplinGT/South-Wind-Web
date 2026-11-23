@@ -1,6 +1,18 @@
 /** Monedas que el cliente puede abrir hoy. GBP y COP se cotizan, pero todavía no tienen cuenta de recepción. */
 export const RECEIVE_CURRENCY_CODES = ["usd", "eur", "mxn", "brl"] as const;
 
+export const RECEIVE_CURRENCY_LABELS: Record<string, string> = {
+  usd: "USD · ACH",
+  eur: "EUR · SEPA",
+  mxn: "MXN · SPEI",
+  brl: "BRL · Pix",
+};
+
+export function openAccountHref(companyId?: string): string {
+  const query = companyId ? `?perfil=${encodeURIComponent(companyId)}` : "";
+  return `/app/cuenta${query}#abrir-cuenta`;
+}
+
 export function isActiveVirtualAccount(status: string): boolean {
   return status.toLowerCase() !== "deactivated";
 }

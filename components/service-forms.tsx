@@ -84,11 +84,18 @@ export function ReceiveAccountForm({
   feePercent,
   fixedFeeUsd,
   feeConfigEnabled,
+  currencies = [
+    { value: "usd", label: "USD · ACH" },
+    { value: "eur", label: "EUR · SEPA" },
+    { value: "mxn", label: "MXN · SPEI" },
+    { value: "brl", label: "BRL · Pix" },
+  ],
 }: {
   profiles: { id: string; label: string; wallets: { id: string; label: string }[] }[];
   feePercent: string;
   fixedFeeUsd: string;
   feeConfigEnabled: boolean;
+  currencies?: { value: string; label: string }[];
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -145,15 +152,16 @@ export function ReceiveAccountForm({
         </div>
       ) : (
         <form onSubmit={showReview} className="grid gap-3">
-          <label><span className="label">Perfil</span>
-            <select className="input" name="companyId">{profiles.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select>
-          </label>
-          <label><span className="label">Moneda de recepción</span>
+          {profiles.length > 1 ? (
+            <label><span className="label">Perfil</span>
+              <select className="input" name="companyId">{profiles.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select>
+            </label>
+          ) : (
+            <input type="hidden" name="companyId" value={profiles[0]?.id ?? ""} />
+          )}
+          <label><span className="label">Moneda</span>
             <select className="input" name="currency">
-              <option value="usd">USD · ACH</option>
-              <option value="eur">EUR · SEPA</option>
-              <option value="brl">BRL · Pix</option>
-              <option value="mxn">MXN · SPEI</option>
+              {currencies.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
           </label>
           <label><span className="label">Destino del USDC</span>

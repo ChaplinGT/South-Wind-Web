@@ -1,6 +1,9 @@
+import { ReceiveAccountForm } from "@/components/service-forms";
 import { prisma } from "@/lib/db";
+import { AppError } from "@/lib/errors";
+import { missingReceiveCurrencies, RECEIVE_CURRENCY_LABELS } from "@/lib/receive-summary";
 import { getPricing } from "@/lib/settings";
-import { requireClient, requireCompany } from "@/lib/session";
+import { requireClient } from "@/lib/session";
 
 export const metadata = { title: "Cuenta virtual" };
 
@@ -19,13 +22,28 @@ type Instructions = {
   status?: string;
 };
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ perfil?: string }> }) {
   const session = await requireClient();
-  const company = await requireCompany(session.companyId);
-  const [account, pricing] = await Promise.all([
-    prisma.virtualAccount.findFirst({ where: { companyId: company.id }, orderBy: { createdAt: "desc" } }),
-    getPricing(),
-  ]);
+  const { perfil } = await searchParams;
+  const requestedId = perfil || session.companyId;
+  const include = { externalWallets: true, virtualAccounts: { orderBy: { createdAt: "desc" as const } } };
+  const company =
+    (await prisma.company.findFirst({
+      where: {
+        id: requestedId,
+        OR: [{ ownerUserId: session.sub }, { id: session.companyId }],
+      },
+      include,
+    })) ??
+    (await prisma.company.findFirst({
+      where: { id: session.companyId },
+      include,
+    }));
+  if (!company) throw new AppError("No encontramos la empresa.", 404);
+  const accounts = company.virtualAccounts;
+  const wallets = company.externalWallets;
+  const account = accounts[0];
+  const pricing = await getPricing();
   const instructions = account ? (JSON.parse(account.instructionsJson) as Instructions) : null;
   const deposit = instructions?.source_deposit_instructions;
   const rows = deposit
@@ -40,6 +58,7 @@ export default async function AccountPage() {
         ["Routing", deposit.bank_routing_number || "—"],
       ]
     : [];
+  const missing = missingReceiveCurrencies(accounts.filter((item) => item.status !== "deactivated").map((item) => item.currency));
   return (
     <div className="space-y-6">
       <div>
@@ -78,6 +97,26 @@ export default async function AccountPage() {
           ) : null}
         </section>
       )}
+      <section id="abrir-cuenta" className="scroll-mt-24 space-y-3">
+        <h2 className="font-display text-3xl">Abrir nueva cuenta</h2>
+        {missing.length === 0 ? (
+          <p className="text-sm text-teal-900/70">Ya tiene una cuenta en cada moneda disponible.</p>
+        ) : (
+          <ReceiveAccountForm
+            feePercent={pricing.vaDeveloperFeePercent}
+            fixedFeeUsd={pricing.fixedReceiveFeeUsd}
+            feeConfigEnabled={pricing.feeConfigEnabled}
+            currencies={missing.map((code) => ({ value: code, label: RECEIVE_CURRENCY_LABELS[code] }))}
+            profiles={[
+              {
+                id: company.id,
+                label: `${company.kind === "persona" ? "Persona" : "Empresa"} · ${company.legalName}`,
+                wallets: wallets.map((wallet) => ({ id: wallet.id, label: `${wallet.network} · ${wallet.address.slice(0, 10)}` })),
+              },
+            ]}
+          />
+        )}
+      </section>
     </div>
   );
 }

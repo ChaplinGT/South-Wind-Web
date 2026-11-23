@@ -6,7 +6,7 @@ import { BridgeHttpClient } from "@/lib/bridge/http";
 import { MockBridge } from "@/lib/bridge/mock";
 import { summarizeCustomers, verifyBridgeSignature } from "@/lib/bridge/webhook";
 import { demoCompanies, endingBalance } from "@/lib/demo-data";
-import { depositSummary, missingReceiveCurrencies } from "@/lib/receive-summary";
+import { depositSummary, missingReceiveCurrencies, openAccountHref } from "@/lib/receive-summary";
 import { feeAmount } from "@/lib/money";
 import { periodBounds } from "@/lib/format";
 import { compileStatement } from "@/lib/statements/build";
@@ -356,6 +356,12 @@ describe("cuentas para recibir en el inicio", () => {
     expect(summary).toEqual({ currency: "USD", bankName: "Lead Bank", accountNumber: "2000001001" });
     expect(missingReceiveCurrencies(["usd"])).toEqual(["eur", "mxn", "brl"]);
     expect(missingReceiveCurrencies(["usd", "eur", "mxn", "brl"])).toEqual([]);
+    expect(openAccountHref("empresa-1")).toBe("/app/cuenta?perfil=empresa-1#abrir-cuenta");
+    const home = readFileSync("app/app/page.tsx", "utf8");
+    expect(home).toContain("Cuentas receptoras");
+    expect(home).toContain("openAccountHref");
+    expect(home).not.toContain('href="/app/servicios/remesas"');
+    expect(readFileSync("app/app/cuenta/page.tsx", "utf8")).toContain('id="abrir-cuenta"');
   });
 });
 

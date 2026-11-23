@@ -6,7 +6,7 @@ import { readUsdcBalance } from "@/lib/chains";
 import { kindLabel, labelOf, transferStateLabel } from "@/lib/labels";
 import { canTransact } from "@/lib/kyb";
 import { bobReference, fxWithMarkup } from "@/lib/rates";
-import { accountStatusLabel, depositSummary, isActiveVirtualAccount, missingReceiveCurrencies } from "@/lib/receive-summary";
+import { accountStatusLabel, depositSummary, isActiveVirtualAccount, missingReceiveCurrencies, openAccountHref } from "@/lib/receive-summary";
 import { getBobMarkupPercent, getFxMarkupPercent } from "@/lib/settings";
 import { requireUser } from "@/lib/session";
 
@@ -119,7 +119,7 @@ export default async function DashboardPage() {
                 )}
               </article>
               <article className="card flex flex-col gap-3">
-                <h2 className="font-display text-2xl">Cuentas para recibir</h2>
+                <h2 className="font-display text-2xl">Cuentas receptoras</h2>
                 {profiles.length > 1 && profile ? <p className="text-sm font-medium text-teal-900/70">{profileLabel} · {profile.legalName}</p> : null}
                 {accounts.length === 0 ? <p className="text-sm text-teal-900/70">Aún no tiene una cuenta para recibir.</p> : null}
                 <ul className="space-y-2">
@@ -127,7 +127,7 @@ export default async function DashboardPage() {
                     const summary = depositSummary(account.instructionsJson, account.currency);
                     return (
                       <li key={account.id}>
-                        <Link href="/app/cuenta" className="block rounded-2xl border border-teal-100 px-3 py-3 hover:bg-teal-50">
+                        <Link href={profile ? `/app/cuenta?perfil=${profile.id}` : "/app/cuenta"} className="block rounded-2xl border border-teal-100 px-3 py-3 hover:bg-teal-50">
                           <p className="font-semibold">{summary.currency} · {accountStatusLabel(account.status)}</p>
                           {summary.bankName ? <p className="mt-1 text-sm text-teal-900/80">{summary.bankName}</p> : null}
                           {summary.accountNumber ? <p className="text-sm tabular-nums tracking-wide">{summary.accountNumber}</p> : null}
@@ -137,10 +137,10 @@ export default async function DashboardPage() {
                   })}
                 </ul>
                 {accounts.length === 0 ? (
-                  <Link className="btn-primary w-full sm:w-auto" href="/app/servicios/remesas">Abrir cuenta</Link>
+                  <Link className="btn-primary w-full sm:w-auto" href={openAccountHref(profile?.id)}>Abrir cuenta</Link>
                 ) : null}
                 {accounts.length > 0 && missing.length > 0 ? (
-                  <Link className="btn-secondary w-full sm:w-auto" href="/app/servicios/remesas">Abrir cuenta en otra moneda</Link>
+                  <Link className="btn-secondary w-full sm:w-auto" href={openAccountHref(profile?.id)}>Abrir cuenta en otra moneda</Link>
                 ) : null}
               </article>
             </div>

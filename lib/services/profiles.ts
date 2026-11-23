@@ -69,6 +69,10 @@ export async function enableProfile(userId: string, input: z.infer<typeof enable
 export async function openReceiveAccount(userId: string, input: z.infer<typeof virtualAccountRequestSchema>) {
   const company = await prisma.company.findFirst({ where: { id: input.companyId, ownerUserId: userId } });
   if (!company?.bridgeCustomerId) throw new AppError("Ese perfil todavía no está listo. Complete la verificación.", 409);
+  const duplicate = await prisma.virtualAccount.findFirst({
+    where: { companyId: company.id, currency: input.currency, NOT: { status: "deactivated" } },
+  });
+  if (duplicate) throw new AppError("Ya tiene una cuenta en esa moneda.", 409);
   const bridge = getBridge();
   const pricing = await getPricing();
   let destination: Record<string, unknown>;
