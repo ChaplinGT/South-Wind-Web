@@ -4,7 +4,7 @@ export type P2PAd = {
   privilegeType?: string | null;
 };
 
-const cache = new Map<string, { at: number; value: unknown }>();
+const bobCache: { at: number; buy: number | null; sell: number | null } = { at: 0, buy: null, sell: null };
 
 export function usableP2PPrices(ads: P2PAd[]): number[] {
   return ads
@@ -33,14 +33,6 @@ export function pricesFromBinanceBody(body: unknown): number[] {
   return usableP2PPrices(rows.map((row) => row.adv ?? {}));
 }
 
-async function cached<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < ttlMs) return hit.value as T;
-  const value = await load();
-  cache.set(key, { at: Date.now(), value });
-  return value;
-}
-
 async function binanceSide(tradeType: "BUY" | "SELL"): Promise<number | null> {
   const response = await fetch("https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search", {
     method: "POST",
@@ -60,7 +52,8 @@ async function binanceSide(tradeType: "BUY" | "SELL"): Promise<number | null> {
   return averageNearMedian(pricesFromBinanceBody(await response.json()));
 }
 
-export async function bobReference(markup: number): Promise<{
+/** Cotización de Binance. No reutiliza una lectura con más de maxAgeMs (60 s en operaciones). `at` es el momento de esa lectura. */
+export async function bobReference(markup: number, maxAgeMs = 60_000): Promise<{
   compra: number | null;
   venta: number | null;
   binanceBuy: number | null;
@@ -69,16 +62,30 @@ export async function bobReference(markup: number): Promise<{
   at: string;
   source: string;
 }> {
-  const [buy, sell] = await cached("bob", 60_000, () => Promise.all([binanceSide("BUY"), binanceSide("SELL")]));
+  const fresh = bobCache.at > 0 && Date.now() - bobCache.at <= maxAgeMs;
+  if (!fresh) {
+    const [buy, sell] = await Promise.all([binanceSide("BUY"), binanceSide("SELL")]);
+    bobCache.at = Date.now();
+    bobCache.buy = buy;
+    bobCache.sell = sell;
+  }
   return {
-    binanceBuy: buy,
-    binanceSell: sell,
-    compra: buy === null ? null : applySpread(buy, markup, "add"),
-    venta: sell === null ? null : applySpread(sell, markup, "sub"),
+    binanceBuy: bobCache.buy,
+    binanceSell: bobCache.sell,
+    compra: bobCache.buy === null ? null : applySpread(bobCache.buy, markup, "add"),
+    venta: bobCache.sell === null ? null : applySpread(bobCache.sell, markup, "sub"),
     markup,
-    at: new Date().toISOString(),
+    at: new Date(bobCache.at).toISOString(),
     source: "Binance P2P USDT/BOB",
   };
+}
+
+export function fxWithMarkup(
+  buyRate: string | number | null,
+  sellRate: string | number | null,
+  markup: number,
+): { buy: number | null; sell: number | null } {
+  return eurWithMarkup(buyRate, sellRate, markup);
 }
 
 export function eurWithMarkup(

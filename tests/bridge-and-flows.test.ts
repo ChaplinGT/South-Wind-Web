@@ -11,7 +11,15 @@ import { compileStatement } from "@/lib/statements/build";
 import { renderStatementPdf } from "@/lib/statements/pdf";
 import { isValidEmail, otherAdminAction, resolveAdminEmail } from "@/lib/admin-seed";
 import { decodeHexQuantity, encodeBalanceOf, formatToken } from "@/lib/chains";
-import { usdcForBobPayment } from "@/lib/orders";
+import {
+  marginSummary,
+  PRICING_DEFAULTS,
+  quoteBobProceeds,
+  quoteDirectSend,
+  quoteWalletSend,
+  receiveNetUsdc,
+  virtualAccountFeePayload,
+} from "@/lib/pricing";
 import { applySpread, averageNearMedian, pricesFromBinanceBody } from "@/lib/rates";
 import { railsFromEndorsements } from "@/lib/service-rails";
 import { appUrl, isMockMode } from "@/lib/env";
@@ -219,8 +227,31 @@ describe("extractos, comisiones y validación", () => {
     ]);
     expect(encodeBalanceOf("0x00000000000000000000000000000000000000aa")).toMatch(/^0x70a08231/);
     expect(formatToken(decodeHexQuantity("0x0f4240"), 6)).toBe("1.00");
-    expect(usdcForBobPayment("690.00", 6.9, "0")).toEqual({ rate: "6.9000", usdcAmount: "100.00" });
-    expect(usdcForBobPayment("690.00", 6.9, "1")).toMatchObject({ usdcAmount: "99.00" });
+    const direct = quoteDirectSend({ usdcAmount: "100.00", buyRate: 6.9, fixedFeeUsd: "10.00", sendFeePercent: "1.00" });
+    expect(direct).toMatchObject({
+      rate: "6.9000",
+      principalBob: "690.00",
+      fixedFeeBob: "69.00",
+      bobAmount: "759.00",
+      sendFeeUsdc: "1.00",
+      beneficiaryUsdc: "99.00",
+    });
+    expect(quoteWalletSend("100.00", "1.00", "0.25", "10.00").fee).toBe("11.25");
+    expect(receiveNetUsdc("100.00", "10.00", true)).toEqual({ gross: "100.00", fixedFeeUsd: "10.00", net: "90.00" });
+    expect(receiveNetUsdc("100.00", "10.00", false).net).toBe("100.00");
+    expect(quoteBobProceeds("90.00", 6.9)).toEqual({ rate: "6.9000", bobAmount: "621.00" });
+    const withFlat = virtualAccountFeePayload(true, "1.25", "10.00");
+    const percentOnly = virtualAccountFeePayload(false, "1.25", "10.00");
+    expect(withFlat).toEqual({ fee_config: { source: { default: { fee_amount: "10.0", fee_percent: "1.25" } } } });
+    expect(percentOnly).toEqual({ developer_fee_percent: "1.25" });
+    expect("developer_fee_percent" in withFlat).toBe(false);
+    expect("fee_config" in percentOnly).toBe(false);
+    const margins = marginSummary({
+      ...PRICING_DEFAULTS,
+      feeConfigEnabled: false,
+    });
+    expect(margins.find((row) => row.route.startsWith("Recepción a la billetera"))?.grossMarginPercent).toBe("0.75");
+    expect(margins.find((row) => row.route.startsWith("Envío desde billetera"))?.grossMarginPercent).toBe("1.88");
   });
 
   it("calcula la comisión de referencia", () => {

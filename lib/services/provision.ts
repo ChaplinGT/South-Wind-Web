@@ -1,14 +1,20 @@
 import { randomUUID } from "crypto";
 import { prisma } from "../db";
 import { getBridge } from "../bridge";
-import { getFeePercent } from "../settings";
+import { virtualAccountFeePayload } from "../pricing";
+import { getPricing } from "../settings";
 import type { BridgeVirtualAccount, BridgeWallet } from "../bridge/types";
 
 export async function provisionCompany(companyId: string) {
   const company = await prisma.company.findUnique({ where: { id: companyId } });
   if (!company?.bridgeCustomerId) return company;
   const bridge = getBridge();
-  const fee = await getFeePercent();
+  const pricing = await getPricing();
+  const feeFields = virtualAccountFeePayload(
+    pricing.feeConfigEnabled,
+    pricing.vaDeveloperFeePercent,
+    pricing.fixedReceiveFeeUsd,
+  );
 
   let wallet: BridgeWallet | undefined;
   const wallets = await bridge.listWallets(company.bridgeCustomerId);
@@ -24,7 +30,7 @@ export async function provisionCompany(companyId: string) {
     virtualAccount = await bridge.createVirtualAccount(
       company.bridgeCustomerId,
       {
-        developer_fee_percent: fee,
+        ...feeFields,
         source: { currency: "usd" },
         destination: {
           currency: "usdc",
@@ -56,6 +62,8 @@ export async function provisionCompany(companyId: string) {
         bridgeVirtualAccountId: virtualAccount.id,
         status: virtualAccount.status,
         currency: virtualAccount.source_deposit_instructions.currency || "usd",
+        feeMode: pricing.feeConfigEnabled ? "fee_config" : "developer_percent",
+        destinationMode: "bridge_wallet",
         instructionsJson: JSON.stringify(virtualAccount),
       },
     });

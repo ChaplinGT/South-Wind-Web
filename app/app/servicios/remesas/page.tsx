@@ -1,12 +1,14 @@
 import { BobAccountForm } from "@/components/forms";
 import { ReceiveAccountForm } from "@/components/service-forms";
 import { prisma } from "@/lib/db";
+import { getPricing } from "@/lib/settings";
 import { requireUser } from "@/lib/session";
 
 export const metadata = { title: "Recibir" };
 
 export default async function RemittancesPage() {
   const session = await requireUser();
+  const pricing = await getPricing();
   const profiles = await prisma.company.findMany({
     where: { ownerUserId: session.sub, bridgeCustomerId: { not: null } },
     include: { externalWallets: true },
@@ -22,6 +24,10 @@ export default async function RemittancesPage() {
         <BobAccountForm />
       </section>
       <ReceiveAccountForm
+        feePercent={pricing.vaDeveloperFeePercent}
+        fixedFeeUsd={pricing.fixedReceiveFeeUsd}
+        feeConfigEnabled={pricing.feeConfigEnabled}
+        bobMarkupPercent={pricing.bobMarkupPercent}
         profiles={profiles.map((item) => ({
           id: item.id,
           label: `${item.kind === "persona" ? "Persona" : "Empresa"} · ${item.legalName}`,

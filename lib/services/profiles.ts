@@ -8,7 +8,8 @@ import { provisionCompany } from "./provision";
 import type { z } from "zod";
 import type { enableProfileSchema, virtualAccountRequestSchema } from "../validation";
 import { WALLET_NETWORKS } from "../service-rails";
-import { getSouthWindWallet, getVaDeveloperFeePercent } from "../settings";
+import { virtualAccountFeePayload } from "../pricing";
+import { getPricing, getSouthWindWallet } from "../settings";
 
 export async function enableProfile(userId: string, input: z.infer<typeof enableProfileSchema>, ip?: string | null) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -69,7 +70,7 @@ export async function openReceiveAccount(userId: string, input: z.infer<typeof v
   const company = await prisma.company.findFirst({ where: { id: input.companyId, ownerUserId: userId } });
   if (!company?.bridgeCustomerId) throw new AppError("Ese perfil todavía no está vinculado a Bridge.", 409);
   const bridge = getBridge();
-  const fee = await getVaDeveloperFeePercent();
+  const pricing = await getPricing();
   let destination: Record<string, unknown>;
   let destinationMode = input.destination;
   if (input.destination === "southwind") {
@@ -101,7 +102,11 @@ export async function openReceiveAccount(userId: string, input: z.infer<typeof v
   }
   const account = await bridge.createVirtualAccount(
     company.bridgeCustomerId,
-    { developer_fee_percent: fee, source: { currency: input.currency }, destination },
+    {
+      ...virtualAccountFeePayload(pricing.feeConfigEnabled, pricing.vaDeveloperFeePercent, pricing.fixedReceiveFeeUsd),
+      source: { currency: input.currency },
+      destination,
+    },
     randomUUID(),
   );
   await prisma.virtualAccount.create({
@@ -111,6 +116,7 @@ export async function openReceiveAccount(userId: string, input: z.infer<typeof v
       status: account.status,
       currency: input.currency,
       destinationMode,
+      feeMode: pricing.feeConfigEnabled ? "fee_config" : "developer_percent",
       instructionsJson: JSON.stringify(account),
     },
   });

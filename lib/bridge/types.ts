@@ -50,6 +50,9 @@ export type BridgeVirtualAccount = {
   customer_id?: string;
   status: string;
   developer_fee_percent: string;
+  fee_config?: {
+    source?: { default?: { fee_amount?: string; fee_percent?: string } };
+  };
   source_deposit_instructions: {
     currency: string;
     payment_rails?: string[];
@@ -138,6 +141,11 @@ export interface BridgeClient {
     input: Record<string, unknown>,
     idempotencyKey: string,
   ): Promise<BridgeVirtualAccount>;
+  updateVirtualAccount(
+    customerId: string,
+    virtualAccountId: string,
+    input: Record<string, unknown>,
+  ): Promise<BridgeVirtualAccount>;
   listWallets(customerId: string): Promise<BridgeList<BridgeWallet>>;
   createWallet(customerId: string, input: Record<string, unknown>, idempotencyKey: string): Promise<BridgeWallet>;
   listTransfers(params?: { limit?: number }): Promise<BridgeList<BridgeTransfer>>;
@@ -155,4 +163,9 @@ export interface BridgeClient {
     input: Record<string, unknown>,
     idempotencyKey: string,
   ): Promise<{ id: string; address: string; chain: string; currency: string }>;
+  updateLiquidationAddress(
+    customerId: string,
+    liquidationAddressId: string,
+    input: Record<string, unknown>,
+  ): Promise<{ id: string; address?: string; chain?: string; currency?: string }>;
 }

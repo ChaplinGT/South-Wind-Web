@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { isValidEmail, otherAdminAction, resolveAdminEmail } from "../lib/admin-seed";
 import { DEMO_PASSWORD, DEMO_STATEMENT, demoCompanies, type DemoCompany } from "../lib/demo-data";
+import { PRICING_DEFAULTS } from "../lib/pricing";
 import { rails } from "../lib/rails";
 import { generateStatement } from "../lib/services/statements";
 
@@ -35,11 +36,23 @@ function instructions(company: DemoCompany) {
 async function main() {
   const defaults: [string, string][] = [
     ["feePercent", process.env.SOUTH_WIND_FEE_PERCENT || "0.50"],
-    ["bobMarkupPercent", process.env.BOB_MARKUP_PERCENT || "0.50"],
-    ["fxMarkupPercent", process.env.FX_MARKUP_PERCENT || process.env.EUR_MARKUP_PERCENT || "0.10"],
-    ["payoutDirectFeePercent", "0"],
-    ["payoutWalletFeePercent", "0"],
-    ["vaDeveloperFeePercent", process.env.VA_DEVELOPER_FEE_PERCENT || process.env.SOUTH_WIND_FEE_PERCENT || "0.50"],
+    ["bobMarkupPercent", process.env.BOB_MARKUP_PERCENT || PRICING_DEFAULTS.bobMarkupPercent],
+    ["fxMarkupPercent", process.env.FX_MARKUP_PERCENT || process.env.EUR_MARKUP_PERCENT || PRICING_DEFAULTS.fxMarkupPercent],
+    ["vaDeveloperFeePercent", process.env.VA_DEVELOPER_FEE_PERCENT || PRICING_DEFAULTS.vaDeveloperFeePercent],
+    ["sendFeePercent", PRICING_DEFAULTS.sendFeePercent],
+    ["walletSurchargePercent", PRICING_DEFAULTS.walletSurchargePercent],
+    ["fixedSendFeeUsd", PRICING_DEFAULTS.fixedSendFeeUsd],
+    ["fixedReceiveFeeUsd", PRICING_DEFAULTS.fixedReceiveFeeUsd],
+    ["feeConfigEnabled", PRICING_DEFAULTS.feeConfigEnabled],
+    ["bridgeOrchestrationPercent", PRICING_DEFAULTS.bridgeOrchestrationPercent],
+    ["bridgeVaOrchestrationPercent", PRICING_DEFAULTS.bridgeVaOrchestrationPercent],
+    ["bridgeUsdtSupportPercent", PRICING_DEFAULTS.bridgeUsdtSupportPercent],
+    ["bridgeVaAccountFeeUsd", PRICING_DEFAULTS.bridgeVaAccountFeeUsd],
+    ["bridgeVaAccountFeeMxn", PRICING_DEFAULTS.bridgeVaAccountFeeMxn],
+    ["bridgeVaAccountFeeBrlCop", PRICING_DEFAULTS.bridgeVaAccountFeeBrlCop],
+    ["bridgeWalletFeeUsd", PRICING_DEFAULTS.bridgeWalletFeeUsd],
+    ["bridgeKycUsdYear", PRICING_DEFAULTS.bridgeKycUsdYear],
+    ["bridgeKybUsdYear", PRICING_DEFAULTS.bridgeKybUsdYear],
   ];
   for (const [key, value] of defaults) {
     await prisma.setting.upsert({ where: { key }, update: {}, create: { key, value } });

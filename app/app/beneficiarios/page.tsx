@@ -5,17 +5,16 @@ import { CopyButton } from "@/components/copy-button";
 import { prisma } from "@/lib/db";
 import { railLabel } from "@/lib/rails";
 import { requireClient } from "@/lib/session";
-import { getPayoutDirectFeePercent, getPayoutWalletFeePercent } from "@/lib/settings";
+import { getPricing } from "@/lib/settings";
 
 export const metadata = { title: "Beneficiarios" };
 
 export default async function BeneficiariesPage() {
   const session = await requireClient();
-  const [beneficiaries, company, directFee, walletFee] = await Promise.all([
+  const [beneficiaries, company, pricing] = await Promise.all([
     prisma.beneficiary.findMany({ where: { companyId: session.companyId }, orderBy: { createdAt: "desc" } }),
     prisma.company.findUnique({ where: { id: session.companyId } }),
-    getPayoutDirectFeePercent(),
-    getPayoutWalletFeePercent(),
+    getPricing(),
   ]);
   const cards = await Promise.all(
     beneficiaries.map(async (item) => ({
@@ -50,8 +49,9 @@ export default async function BeneficiariesPage() {
             )}
             <BeneficiaryActions
               beneficiaryId={item.id}
-              directFee={directFee}
-              walletFee={walletFee}
+              sendFeePercent={pricing.sendFeePercent}
+              walletSurchargePercent={pricing.walletSurchargePercent}
+              fixedSendFeeUsd={pricing.fixedSendFeeUsd}
               hasWallet={Boolean(company?.bridgeWalletId)}
             />
           </article>

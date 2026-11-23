@@ -1,15 +1,35 @@
 import { prisma } from "../db";
 import { audit } from "../audit";
 import { AppError } from "../errors";
+import { quoteBobProceeds, quoteDirectSend } from "../pricing";
 import { bobReference } from "../rates";
-import { getBobMarkupPercent, getPayoutDirectFeePercent } from "../settings";
-import { usdcForBobPayment } from "../orders";
+import { getPricing } from "../settings";
+
+async function freshBob(markup: string) {
+  try {
+    return await bobReference(Number(markup), 60_000);
+  } catch {
+    throw new AppError("No se pudo leer el tipo de cambio de Binance. Intente más tarde.", 503);
+  }
+}
+
+export async function priceDirectOrder(usdcAmount: string) {
+  const pricing = await getPricing();
+  const quote = await freshBob(pricing.bobMarkupPercent);
+  if (!quote.compra) throw new AppError("No hay un tipo de cambio de compra disponible. Intente más tarde.", 503);
+  return quoteDirectSend({
+    usdcAmount,
+    buyRate: quote.compra,
+    fixedFeeUsd: pricing.fixedSendFeeUsd,
+    sendFeePercent: pricing.sendFeePercent,
+  });
+}
 
 export async function createPaymentOrder(input: {
   companyId: string;
   actorId: string;
   beneficiaryId: string;
-  bobAmount: string;
+  usdcAmount: string;
   ip?: string | null;
 }) {
   const beneficiary = await prisma.beneficiary.findFirst({
@@ -18,19 +38,18 @@ export async function createPaymentOrder(input: {
   if (!beneficiary?.liquidationAddress) {
     throw new AppError("Ese beneficiario todavía no tiene dirección de liquidación.", 409);
   }
-  const markup = Number(await getBobMarkupPercent());
-  const quote = await bobReference(markup);
-  if (!quote.venta) throw new AppError("No hay un tipo de cambio de venta disponible. Intente más tarde.", 503);
-  const feePercent = await getPayoutDirectFeePercent();
-  const priced = usdcForBobPayment(input.bobAmount, quote.venta, feePercent);
+  const priced = await priceDirectOrder(input.usdcAmount);
   const order = await prisma.paymentOrder.create({
     data: {
       companyId: input.companyId,
       beneficiaryId: beneficiary.id,
-      bobAmount: input.bobAmount,
+      bobAmount: priced.bobAmount,
+      principalBob: priced.principalBob,
+      fixedFeeUsd: priced.fixedFeeUsd,
+      fixedFeeBob: priced.fixedFeeBob,
       rate: priced.rate,
       usdcAmount: priced.usdcAmount,
-      feePercent,
+      feePercent: priced.sendFeePercent,
       status: "pendiente",
       reference: `ORD-${Date.now().toString().slice(-6)}`,
     },
@@ -42,9 +61,14 @@ export async function createPaymentOrder(input: {
     entityType: "payment_order",
     entityId: order.id,
     ip: input.ip,
-    metadata: { bobAmount: input.bobAmount, usdcAmount: priced.usdcAmount, rate: priced.rate },
+    metadata: {
+      bobAmount: priced.bobAmount,
+      usdcAmount: priced.usdcAmount,
+      rate: priced.rate,
+      fixedFeeUsd: priced.fixedFeeUsd,
+    },
   });
-  return order;
+  return { ...order, sendFeeUsdc: priced.sendFeeUsdc, beneficiaryUsdc: priced.beneficiaryUsdc };
 }
 
 export async function updatePaymentOrder(input: {
@@ -85,14 +109,29 @@ export async function updateLiquidacion(input: {
 }) {
   const row = await prisma.liquidacionBob.findUnique({ where: { id: input.id } });
   if (!row) throw new AppError("No encontramos la liquidación.", 404);
-  const updated = await prisma.liquidacionBob.update({
-    where: { id: row.id },
-    data: {
-      status: input.status,
-      reference: input.reference || row.reference,
-      adminNote: input.adminNote ?? row.adminNote,
-    },
-  });
+  const data: {
+    status: string;
+    reference?: string | null;
+    adminNote?: string | null;
+    rate?: string;
+    bobAmount?: string;
+    quotedAt?: Date;
+  } = {
+    status: input.status,
+    reference: input.reference || row.reference,
+    adminNote: input.adminNote ?? row.adminNote,
+  };
+  if (input.status === "pagado" && !row.rate) {
+    const pricing = await getPricing();
+    const quote = await freshBob(pricing.bobMarkupPercent);
+    if (!quote.venta) throw new AppError("No hay un tipo de cambio de venta disponible. Intente más tarde.", 503);
+    const net = row.netUsdcAmount || row.usdcAmount;
+    const priced = quoteBobProceeds(net, quote.venta);
+    data.rate = priced.rate;
+    data.bobAmount = priced.bobAmount;
+    data.quotedAt = new Date(quote.at);
+  }
+  const updated = await prisma.liquidacionBob.update({ where: { id: row.id }, data });
   await audit({
     actorId: input.actorId,
     companyId: row.companyId,
@@ -100,7 +139,7 @@ export async function updateLiquidacion(input: {
     entityType: "liquidacion_bob",
     entityId: row.id,
     ip: input.ip,
-    metadata: { status: input.status },
+    metadata: { status: input.status, rate: updated.rate, bobAmount: updated.bobAmount },
   });
   return updated;
 }

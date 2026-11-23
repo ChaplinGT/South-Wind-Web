@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { formatAmount, formatDateTime } from "@/lib/format";
 import { getBridge } from "@/lib/bridge";
 import { readUsdcBalance } from "@/lib/chains";
-import { bobReference, eurWithMarkup } from "@/lib/rates";
+import { bobReference, fxWithMarkup } from "@/lib/rates";
 import { getBobMarkupPercent, getFxMarkupPercent } from "@/lib/settings";
 import { railsFromEndorsements } from "@/lib/service-rails";
 import { requireUser } from "@/lib/session";
@@ -35,15 +35,17 @@ export default async function DashboardPage() {
   } catch {
     bob = null;
   }
-  let eur: { buy: number | null; sell: number | null } = { buy: null, sell: null };
-  let eurAt = new Date().toISOString();
-  try {
-    const quote = await getBridge().getExchangeRate("usd", "eur");
-    eur = eurWithMarkup(quote.buy_rate ?? null, quote.sell_rate ?? null, Number(fxMarkup));
-    eurAt = new Date().toISOString();
-  } catch {
-    eur = { buy: null, sell: null };
-  }
+  const fxCodes = ["eur", "gbp", "mxn", "brl", "cop"] as const;
+  const fxQuotes = await Promise.all(
+    fxCodes.map(async (code) => {
+      try {
+        const quote = await getBridge().getExchangeRate("usd", code);
+        return { code, ...fxWithMarkup(quote.buy_rate ?? null, quote.sell_rate ?? null, Number(fxMarkup)), at: new Date().toISOString() };
+      } catch {
+        return { code, buy: null, sell: null, at: null as string | null };
+      }
+    }),
+  );
   const railNotes = await Promise.all(
     profiles.map(async (profile) => {
       if (!profile.bridgeCustomerId) return { id: profile.id, rails: [] as string[] };
@@ -98,13 +100,17 @@ export default async function DashboardPage() {
           <p className="mt-2 text-xs text-teal-900/50">{bob ? formatDateTime(bob.at) : "No se pudo leer Binance P2P."}</p>
         </article>
         <article className="card">
-          <p className="text-xs uppercase tracking-wide text-teal-800">USD/EUR · Bridge</p>
-          <p className="mt-1 text-xs text-teal-900/60">buy_rate y sell_rate de Bridge, más el margen South Wind de {fxMarkup} % para EUR y el resto de monedas distintas de BOB.</p>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <div><p className="text-sm text-teal-900/60">Compra EUR</p><p className="font-display text-3xl">{eur.buy ? eur.buy.toFixed(4) : "—"}</p></div>
-            <div><p className="text-sm text-teal-900/60">Venta EUR</p><p className="font-display text-3xl">{eur.sell ? eur.sell.toFixed(4) : "—"}</p></div>
-          </div>
-          <p className="mt-2 text-xs text-teal-900/50">{formatDateTime(eurAt)} · Bridge</p>
+          <p className="text-xs uppercase tracking-wide text-teal-800">Otras monedas · Bridge</p>
+          <p className="mt-1 text-xs text-teal-900/60">EUR, GBP, MXN, BRL y COP: buy_rate y sell_rate de Bridge, más el margen South Wind de {fxMarkup} %.</p>
+          <ul className="mt-3 space-y-2 text-sm">
+            {fxQuotes.map((quote) => (
+              <li key={quote.code} className="flex justify-between gap-3">
+                <span className="font-semibold">{quote.code.toUpperCase()}</span>
+                <span>Compra {quote.buy ? quote.buy.toFixed(4) : "—"} · Venta {quote.sell ? quote.sell.toFixed(4) : "—"}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-teal-900/50">{fxQuotes[0]?.at ? formatDateTime(fxQuotes[0].at) : "Sin cotización"} · Bridge</p>
         </article>
       </section>
       <section className="grid gap-4 md:grid-cols-2">

@@ -71,6 +71,14 @@ export class BridgeHttpClient implements BridgeClient {
     );
   }
 
+  updateLiquidationAddress(customerId: string, liquidationAddressId: string, input: Record<string, unknown>) {
+    return this.request<{ id: string; address?: string; chain?: string; currency?: string }>(
+      "PUT",
+      `/customers/${encodeURIComponent(customerId)}/liquidation_addresses/${encodeURIComponent(liquidationAddressId)}`,
+      { body: input },
+    );
+  }
+
   getExchangeRate(from: string, to: string) {
     const query = new URLSearchParams({ from, to });
     return this.request<{ buy_rate?: string; sell_rate?: string; midmarket_rate?: string }>(
@@ -131,6 +139,14 @@ export class BridgeHttpClient implements BridgeClient {
       "POST",
       `/customers/${encodeURIComponent(customerId)}/virtual_accounts`,
       { body: input, idempotencyKey },
+    );
+  }
+
+  updateVirtualAccount(customerId: string, virtualAccountId: string, input: Record<string, unknown>) {
+    return this.request<BridgeVirtualAccount>(
+      "PUT",
+      `/customers/${encodeURIComponent(customerId)}/virtual_accounts/${encodeURIComponent(virtualAccountId)}`,
+      { body: input },
     );
   }
 

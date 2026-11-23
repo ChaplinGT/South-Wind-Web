@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { formatDateTime } from "@/lib/format";
+import { formatAmount, formatDateTime } from "@/lib/format";
 import { LiquidacionActions } from "./actions";
 
 export const metadata = { title: "Liquidaciones a bolivianos" };
@@ -19,7 +19,15 @@ export default async function LiquidacionesPage() {
         return (
           <article key={row.id} className="card">
             <p className="font-semibold">{row.company.legalName}</p>
-            <p className="text-sm">{row.usdcAmount} USDC · {row.status}</p>
+            <p className="text-sm">
+              {row.usdcAmount} USDC recibidos
+              {row.fixedFeeBearer === "portal" ? ` · cargo fijo ${row.fixedFeeUsd} USD descontado aquí` : ""}
+              {row.fixedFeeBearer === "bridge" ? " · cargo fijo ya retenido por Bridge" : ""}
+              {row.netUsdcAmount ? ` · neto ${row.netUsdcAmount} USDC` : ""}
+              {row.rate ? ` · tasa ${row.rate}` : " · tasa al marcar pagado"}
+              {row.bobAmount ? ` · ${formatAmount(row.bobAmount, "bob")}` : ""}
+              {" · "}{row.status}
+            </p>
             <p className="text-sm text-teal-900/70">{bank ? `${bank.bankName} · ${bank.accountNumber} · ${bank.accountHolder}` : "Sin cuenta boliviana registrada"}</p>
             <p className="text-xs text-teal-900/60">{formatDateTime(row.createdAt)} · {row.reference}</p>
             <LiquidacionActions id={row.id} />

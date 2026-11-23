@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { feeAmount, add } from "@/lib/money";
+import { quoteWalletSend } from "@/lib/pricing";
 import { formatAmount } from "@/lib/format";
 import { rails, railLabel, type RailKey } from "@/lib/rails";
 import { directionLabel } from "@/lib/labels";
@@ -82,11 +82,15 @@ export function GoogleButton() {
 
 export function PaymentForm({
   beneficiaries,
-  feePercent,
+  sendFeePercent,
+  walletSurchargePercent,
+  fixedSendFeeUsd,
   balance,
 }: {
   beneficiaries: { id: string; nickname: string; accountOwnerName: string; rail: string; accountLast4: string; bankName: string; currency: string }[];
-  feePercent: string;
+  sendFeePercent: string;
+  walletSurchargePercent: string;
+  fixedSendFeeUsd: string;
   balance: string;
 }) {
   const [step, setStep] = useState(1);
@@ -99,9 +103,12 @@ export function PaymentForm({
   const beneficiary = beneficiaries.find((item) => item.id === beneficiaryId);
   const preview = useMemo(() => {
     if (!/^\d+(\.\d{1,2})?$/.test(amount) || Number(amount) <= 0) return null;
-    const fee = feeAmount(amount, feePercent);
-    return { fee, total: add(amount, fee) };
-  }, [amount, feePercent]);
+    try {
+      return quoteWalletSend(amount, sendFeePercent, walletSurchargePercent, fixedSendFeeUsd);
+    } catch {
+      return null;
+    }
+  }, [amount, sendFeePercent, walletSurchargePercent, fixedSendFeeUsd]);
 
   function review(event: React.FormEvent) {
     event.preventDefault();
@@ -153,7 +160,9 @@ export function PaymentForm({
           <div><dt className="text-teal-900/60">Beneficiario</dt><dd className="font-semibold">{beneficiary.accountOwnerName}</dd></div>
           <div><dt className="text-teal-900/60">Riel</dt><dd className="font-semibold">{railLabel(beneficiary.rail)} ···· {beneficiary.accountLast4}</dd></div>
           <div><dt className="text-teal-900/60">Monto</dt><dd className="font-semibold">{formatAmount(amount)}</dd></div>
-          <div><dt className="text-teal-900/60">Comisión South Wind ({feePercent} %)</dt><dd className="font-semibold">{formatAmount(preview.fee)}</dd></div>
+          <div><dt className="text-teal-900/60">Comisión {sendFeePercent} % + recargo de billetera {walletSurchargePercent} %</dt><dd className="font-semibold">{formatAmount(preview.variable)}</dd></div>
+          <div><dt className="text-teal-900/60">Cargo fijo</dt><dd className="font-semibold">{formatAmount(preview.fixed, "usd")}</dd></div>
+          <div><dt className="text-teal-900/60">developer_fee que se envía a Bridge</dt><dd className="font-semibold">{formatAmount(preview.fee, "usd")}</dd></div>
           <div><dt className="text-teal-900/60">Total a debitar</dt><dd className="font-display text-2xl text-teal-900">{formatAmount(preview.total)}</dd></div>
           <div><dt className="text-teal-900/60">Referencia</dt><dd className="font-semibold">{reference}</dd></div>
         </dl>
@@ -185,7 +194,7 @@ export function PaymentForm({
       <label>
         <span className="label">Monto en USDC</span>
         <input className="input" inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="1000.00" required />
-        {preview ? <p className="help">Comisión estimada {formatAmount(preview.fee)} · Total {formatAmount(preview.total)}</p> : <p className="help">Saldo disponible {formatAmount(balance)}</p>}
+        {preview ? <p className="help">developer_fee {formatAmount(preview.fee, "usd")} · Total {formatAmount(preview.total)}</p> : <p className="help">Saldo disponible {formatAmount(balance)}</p>}
       </label>
       <label>
         <span className="label">Referencia</span>
@@ -386,61 +395,9 @@ export function InviteForm() {
   );
 }
 
-export function FeeForm({ feePercent }: { feePercent: string }) {
+export function WalletAddressForm({ wallets }: { wallets: { chain: string; address: string }[] }) {
   const form = useFormError();
   const router = useRouter();
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    form.setPending(true);
-    form.setError(null);
-    try {
-      await postJson("/api/admin/comision", Object.fromEntries(new FormData(event.currentTarget).entries()));
-      router.refresh();
-    } catch (error) {
-      form.setError((error as Error).message);
-    } finally {
-      form.setPending(false);
-    }
-  }
-  return (
-    <form onSubmit={onSubmit} className="card max-w-lg space-y-3">
-      {form.error ? <Alert tone="bad">{form.error}</Alert> : null}
-      <label>
-        <span className="label">Comisión South Wind (%)</span>
-        <input className="input" name="feePercent" defaultValue={feePercent} />
-        <p className="help">Valor de referencia del MVP. No es la tarifa comercial definitiva. Se envía a Bridge como developer_fee.</p>
-      </label>
-      <button className="btn-primary" disabled={form.pending} type="submit">Guardar comisión</button>
-    </form>
-  );
-}
-
-export function RouteFeeForm({
-  direct,
-  wallet,
-  vaFee,
-  wallets,
-}: {
-  direct: string;
-  wallet: string;
-  vaFee: string;
-  wallets: { chain: string; address: string }[];
-}) {
-  const form = useFormError();
-  const router = useRouter();
-  async function saveFees(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    form.setPending(true);
-    form.setError(null);
-    try {
-      await postJson("/api/admin/tarifas-ruta", Object.fromEntries(new FormData(event.currentTarget).entries()));
-      router.refresh();
-    } catch (error) {
-      form.setError((error as Error).message);
-    } finally {
-      form.setPending(false);
-    }
-  }
   async function saveWallet(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     form.setPending(true);
@@ -456,60 +413,16 @@ export function RouteFeeForm({
     }
   }
   return (
-    <div className="space-y-4">
+    <form onSubmit={saveWallet} className="card max-w-lg space-y-3">
       {form.error ? <Alert tone="bad">{form.error}</Alert> : null}
-      <form onSubmit={saveFees} className="card max-w-lg space-y-3">
-        <h2 className="font-display text-2xl">Comisiones por vía</h2>
-        <label><span className="label">Pago directo a la dirección de liquidación (%)</span><input className="input" name="payoutDirectFeePercent" defaultValue={direct} /></label>
-        <label><span className="label">Pago desde billetera Bridge (%)</span><input className="input" name="payoutWalletFeePercent" defaultValue={wallet} /></label>
-        <label><span className="label">developer_fee_percent de cuentas virtuales</span><input className="input" name="vaDeveloperFeePercent" defaultValue={vaFee} /></label>
-        <p className="help">Las dos primeras empiezan en 0 hasta que defina la tarifa. La de cuentas virtuales es el porcentaje que Bridge retiene al recibir.</p>
-        <button className="btn-primary" disabled={form.pending} type="submit">Guardar tarifas</button>
-      </form>
-      <form onSubmit={saveWallet} className="card max-w-lg space-y-3">
-        <h2 className="font-display text-2xl">Billeteras USDC de South Wind</h2>
-        <p className="text-sm text-teal-900/70">Destino cuando el cliente elige que South Wind liquide el depósito en bolivianos.</p>
-        <ul className="text-xs text-teal-900/70">{wallets.map((item) => <li key={item.chain}>{item.chain}: {item.address || "sin configurar"}</li>)}</ul>
-        <label><span className="label">Red</span>
-          <select className="input" name="chain">{["base", "ethereum", "polygon", "arbitrum", "solana", "tron"].map((chain) => <option key={chain}>{chain}</option>)}</select>
-        </label>
-        <label><span className="label">Dirección</span><input className="input" name="address" required /></label>
-        <button className="btn-secondary" disabled={form.pending} type="submit">Guardar dirección</button>
-      </form>
-    </div>
-  );
-}
-
-export function MarkupForm({ bob, fx }: { bob: string; fx: string }) {
-  const form = useFormError();
-  const router = useRouter();
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    form.setPending(true);
-    form.setError(null);
-    try {
-      await postJson("/api/admin/tasas", Object.fromEntries(new FormData(event.currentTarget).entries()));
-      router.refresh();
-    } catch (error) {
-      form.setError((error as Error).message);
-    } finally {
-      form.setPending(false);
-    }
-  }
-  return (
-    <form onSubmit={onSubmit} className="card max-w-lg space-y-3">
-      {form.error ? <Alert tone="bad">{form.error}</Alert> : null}
-      <label>
-        <span className="label">Margen USDT/BOB (%)</span>
-        <input className="input" name="bobMarkupPercent" defaultValue={bob} />
-        <p className="help">Se suma al precio de compra de Binance y se resta al de venta. Valor inicial 0,50 %.</p>
+      <h2 className="font-display text-2xl">Billeteras USDC de South Wind</h2>
+      <p className="text-sm text-teal-900/70">Destino cuando el cliente elige que South Wind liquide el depósito en bolivianos.</p>
+      <ul className="text-xs text-teal-900/70">{wallets.map((item) => <li key={item.chain}>{item.chain}: {item.address || "sin configurar"}</li>)}</ul>
+      <label><span className="label">Red</span>
+        <select className="input" name="chain">{["base", "ethereum", "polygon", "arbitrum", "solana", "tron"].map((chain) => <option key={chain}>{chain}</option>)}</select>
       </label>
-      <label>
-        <span className="label">Margen del resto de monedas (%)</span>
-        <input className="input" name="fxMarkupPercent" defaultValue={fx} />
-        <p className="help">EUR y cualquier moneda distinta de BOB: se suma al buy_rate de Bridge y se resta al sell_rate. Valor inicial 0,10 %.</p>
-      </label>
-      <button className="btn-primary" disabled={form.pending} type="submit">Guardar márgenes</button>
+      <label><span className="label">Dirección</span><input className="input" name="address" required /></label>
+      <button className="btn-secondary" disabled={form.pending} type="submit">Guardar dirección</button>
     </form>
   );
 }

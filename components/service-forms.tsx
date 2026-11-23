@@ -81,24 +81,41 @@ export function EnableServiceForm() {
 
 export function ReceiveAccountForm({
   profiles,
+  feePercent,
+  fixedFeeUsd,
+  feeConfigEnabled,
+  bobMarkupPercent,
 }: {
   profiles: { id: string; label: string; wallets: { id: string; label: string }[] }[];
+  feePercent: string;
+  fixedFeeUsd: string;
+  feeConfigEnabled: boolean;
+  bobMarkupPercent: string;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [review, setReview] = useState<Record<string, string> | null>(null);
   const router = useRouter();
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+
+  function showReview(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError(null);
+    setReview(Object.fromEntries(new FormData(event.currentTarget).entries()) as Record<string, string>);
+  }
+
+  async function confirm() {
+    if (!review) return;
     setPending(true);
     setError(null);
     try {
       const response = await fetch("/api/servicios/cuenta-virtual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget).entries())),
+        body: JSON.stringify(review),
       });
       const body = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(body.error || "No se pudo abrir la cuenta.");
+      setReview(null);
       router.refresh();
     } catch (caught) {
       setError((caught as Error).message);
@@ -106,39 +123,64 @@ export function ReceiveAccountForm({
       setPending(false);
     }
   }
+
+  const ownWallet = review?.destination === "bridge_wallet" || review?.destination === "external";
   return (
-    <form onSubmit={onSubmit} className="card grid gap-3">
+    <div className="card grid gap-3">
       {error ? <Alert tone="bad">{error}</Alert> : null}
-      <label><span className="label">Perfil Bridge</span>
-        <select className="input" name="companyId">{profiles.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select>
-      </label>
-      <label><span className="label">Moneda de recepción</span>
-        <select className="input" name="currency">
-          <option value="usd">USD · ACH</option>
-          <option value="eur">EUR · SEPA</option>
-          <option value="brl">BRL · Pix</option>
-          <option value="mxn">MXN · SPEI</option>
-        </select>
-      </label>
-      <label><span className="label">Destino del USDC</span>
-        <select className="input" name="destination">
-          <option value="southwind">South Wind liquida en bolivianos</option>
-          <option value="bridge_wallet">Mi billetera Bridge</option>
-          <option value="external">Mi billetera externa registrada</option>
-        </select>
-      </label>
-      <label><span className="label">Red, si liquida South Wind</span>
-        <select className="input" name="chain" defaultValue="base">
-          {["base", "ethereum", "polygon", "arbitrum", "solana"].map((chain) => <option key={chain}>{chain}</option>)}
-        </select>
-      </label>
-      <label><span className="label">Billetera externa</span>
-        <select className="input" name="externalWalletId">
-          <option value="">—</option>
-          {profiles.flatMap((item) => item.wallets).map((wallet) => <option key={wallet.id} value={wallet.id}>{wallet.label}</option>)}
-        </select>
-      </label>
-      <button className="btn-primary" disabled={pending || profiles.length === 0} type="submit">Abrir cuenta virtual</button>
-    </form>
+      {review ? (
+        <div className="space-y-2 text-sm">
+          <p className="font-semibold">Comisiones de esta cuenta, antes de abrirla</p>
+          <p>Comisión South Wind: {feePercent} % de cada depósito.</p>
+          {feeConfigEnabled ? (
+            <p>Bridge cobra además USD {fixedFeeUsd} por depósito y después el {feePercent} % sobre el resto. Ese cargo fijo aplica también si el USDC va a su billetera.</p>
+          ) : ownWallet ? (
+            <p>El cargo fijo de USD {fixedFeeUsd} no se cobra cuando el USDC llega a su billetera.</p>
+          ) : (
+            <p>El cargo fijo de USD {fixedFeeUsd} se descuenta en la liquidación a bolivianos, porque Bridge todavía no retiene un monto fijo en la cuenta virtual.</p>
+          )}
+          {review.destination === "southwind" ? (
+            <p>Al liquidar a bolivianos, la tasa es el precio de venta de Binance menos {bobMarkupPercent} %. Se toma en ese momento, con una cotización de menos de 60 segundos, y queda guardada en el registro.</p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-secondary" type="button" onClick={() => setReview(null)}>Volver</button>
+            <button className="btn-primary" type="button" disabled={pending} onClick={confirm}>{pending ? "Abriendo…" : "Confirmar apertura"}</button>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={showReview} className="grid gap-3">
+          <label><span className="label">Perfil Bridge</span>
+            <select className="input" name="companyId">{profiles.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select>
+          </label>
+          <label><span className="label">Moneda de recepción</span>
+            <select className="input" name="currency">
+              <option value="usd">USD · ACH</option>
+              <option value="eur">EUR · SEPA</option>
+              <option value="brl">BRL · Pix</option>
+              <option value="mxn">MXN · SPEI</option>
+            </select>
+          </label>
+          <label><span className="label">Destino del USDC</span>
+            <select className="input" name="destination">
+              <option value="southwind">South Wind liquida en bolivianos</option>
+              <option value="bridge_wallet">Mi billetera Bridge</option>
+              <option value="external">Mi billetera externa registrada</option>
+            </select>
+          </label>
+          <label><span className="label">Red, si liquida South Wind</span>
+            <select className="input" name="chain" defaultValue="base">
+              {["base", "ethereum", "polygon", "arbitrum", "solana"].map((chain) => <option key={chain}>{chain}</option>)}
+            </select>
+          </label>
+          <label><span className="label">Billetera externa</span>
+            <select className="input" name="externalWalletId">
+              <option value="">—</option>
+              {profiles.flatMap((item) => item.wallets).map((wallet) => <option key={wallet.id} value={wallet.id}>{wallet.label}</option>)}
+            </select>
+          </label>
+          <button className="btn-primary" disabled={profiles.length === 0} type="submit">Revisar comisiones</button>
+        </form>
+      )}
+    </div>
   );
 }

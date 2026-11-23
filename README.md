@@ -159,7 +159,8 @@ En Vercel el comando de build es `npm run vercel-build`: `prisma generate`, `pri
    | `BRIDGE_WEBHOOK_PUBLIC_KEY` | PEM, cuando cree el webhook |
    | `ADMIN_EMAIL` | correo real del administrador |
    | `ADMIN_PASSWORD` | clave que no sea la de demostración |
-   | `SOUTH_WIND_FEE_PERCENT` | `0.50` |
+   | `SOUTH_WIND_FEE_PERCENT` | `0.50` (ya no es la tarifa de los pagos; queda como valor histórico) |
+   | `VA_DEVELOPER_FEE_PERCENT` | `1.25`, solo si la base todavía no tiene la comisión de recepción |
    | `BOB_MARKUP_PERCENT` | `0.50` (solo el valor inicial) |
    | `FX_MARKUP_PERCENT` | `0.10` (solo el valor inicial) |
    | `SEED_ON_BUILD` | `true` en el deploy que debe sembrar; `false` después |
@@ -178,7 +179,7 @@ Los PDF se generan en la función al pedirlos. El logo y las fuentes DejaVu van 
 - Dominio, TLS y `APP_URL` definitivo.
 - Textos legales revisados: condiciones de uso, privacidad, y el aviso de que South Wind no es un banco.
 - Domicilio registrado en Montana, en lugar del marcador de posición.
-- Tarifa comercial real (hoy la comisión es un marcador, por defecto 0,50 %, editable en el panel).
+- Revisar en Comisión los porcentajes ya guardados de un deploy anterior. El seed no pisa un valor existente. La tarifa nueva, si la clave no existe, es 1,25 % al recibir, 1 % al enviar, USD 10 fijos y 0,25 % de recargo en la billetera Bridge.
 - Requisitos de la UIF y del PSAV para la pata en bolivianos. Esa conversión sigue siendo manual: este portal solo registra la solicitud, el estado y el comprobante.
 - Clave, webhook y clientes del entorno de producción de Bridge, separados del sandbox.
 - Correo de invitación, segundo factor, respaldos y una revisión de seguridad.
@@ -188,6 +189,6 @@ Los PDF se generan en la función al pedirlos. El logo y las fuentes DejaVu van 
 ## Notas de integración
 
 - Encabezado de Bridge: `Api-Key`. En cada POST, `Idempotency-Key`. No se envía en GET.
-- La comisión de South Wind viaja como `developer_fee` en `POST /transfers`. El origen del MVP es la billetera custodial (`bridge_wallet` / USDC) y el destino es la cuenta externa del beneficiario.
+- En la billetera Bridge, `developer_fee` es un monto fijo en USD: monto × (comisión de envío + recargo de billetera) + cargo fijo. La dirección de liquidación lleva `custom_developer_fee_percent`. La cuenta virtual lleva `developer_fee_percent`, o `fee_config` si el administrador marcó que Bridge ya lo habilitó. No se envían los dos a la vez.
 - La cuenta virtual de recepción liquida a USDC. El saldo que ve el cliente y el que arma el extracto es el libro interno del portal, actualizado al enviar, al acreditar un depósito y al marcar una conversión como pagada.
 - Un pago devuelto o cancelado, avisado por webhook, revierte el cargo en el libro.

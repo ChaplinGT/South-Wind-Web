@@ -55,8 +55,14 @@ export const virtualAccountRequestSchema = z.object({
 
 export const paymentOrderSchema = z.object({
   beneficiaryId: z.string().min(1),
-  bobAmount: amount,
+  usdcAmount: amount,
 });
+
+const moneyField = z
+  .string()
+  .trim()
+  .regex(/^\d+(\.\d{1,2})?$/, "Ingrese un monto en USD válido.")
+  .refine((value) => Number(value) >= 0 && Number(value) <= 1000, "El monto debe estar entre 0 y 1.000 USD.");
 
 const percentField = z
   .string()
@@ -64,10 +70,24 @@ const percentField = z
   .regex(/^\d+(\.\d{1,2})?$/, "Ingrese un porcentaje válido.")
   .refine((value) => Number(value) >= 0 && Number(value) <= 20, "El margen debe estar entre 0 y 20 %.");
 
-export const routeFeeSchema = z.object({
-  payoutDirectFeePercent: percentField,
-  payoutWalletFeePercent: percentField,
+export const pricingSchema = z.object({
+  sendFeePercent: percentField,
+  walletSurchargePercent: percentField,
+  fixedSendFeeUsd: moneyField,
   vaDeveloperFeePercent: percentField,
+  fixedReceiveFeeUsd: moneyField,
+  feeConfigEnabled: z.enum(["true", "false"]),
+  bobMarkupPercent: percentField,
+  fxMarkupPercent: percentField,
+  bridgeOrchestrationPercent: percentField,
+  bridgeVaOrchestrationPercent: percentField,
+  bridgeUsdtSupportPercent: percentField,
+  bridgeVaAccountFeeUsd: moneyField,
+  bridgeVaAccountFeeMxn: moneyField,
+  bridgeVaAccountFeeBrlCop: moneyField,
+  bridgeWalletFeeUsd: moneyField,
+  bridgeKycUsdYear: moneyField,
+  bridgeKybUsdYear: moneyField,
 });
 
 export const registerSchema = z.object({

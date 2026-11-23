@@ -295,8 +295,21 @@ export class MockBridge implements BridgeClient {
       address: `0x${randomUUID().replace(/-/g, "")}aa`.slice(0, 42),
       chain: String(input.chain || "base"),
       currency: String(input.currency || "usdc"),
+      custom_developer_fee_percent: input.custom_developer_fee_percent
+        ? String(input.custom_developer_fee_percent)
+        : undefined,
     };
-    return (await this.storeIdempotency(idempotencyKey, hash, created)) as typeof created;
+    return (await this.storeIdempotency(idempotencyKey, hash, created)) as {
+      id: string;
+      address: string;
+      chain: string;
+      currency: string;
+    };
+  }
+
+  async updateLiquidationAddress(customerId: string, liquidationAddressId: string, input: Record<string, unknown>) {
+    await this.getCustomer(customerId);
+    return { id: liquidationAddressId };
   }
 
   async getExchangeRate() {
@@ -393,6 +406,9 @@ export class MockBridge implements BridgeClient {
     const hash = JSON.stringify(input);
     const replay = this.remember(idempotencyKey, hash, null);
     if (replay) return replay as BridgeVirtualAccount;
+    if (input.developer_fee_percent !== undefined && input.fee_config !== undefined) {
+      throw new BridgeError("No se puede enviar developer_fee_percent y fee_config juntos.", 422);
+    }
     const destination = (input.destination ?? {}) as Record<string, unknown>;
     const wallet = this.store.wallets.find((item) => item.id === destination.bridge_wallet_id) ??
       this.store.wallets.find((item) => item.customer_id === customerId);
@@ -405,7 +421,11 @@ export class MockBridge implements BridgeClient {
       routingNumber: "87654321",
       beneficiary: owner.first_name || "Cliente South Wind",
     });
-    created.developer_fee_percent = String(input.developer_fee_percent ?? "0.50");
+    const feeConfig = input.fee_config as { source?: { default?: { fee_percent?: string; fee_amount?: string } } } | undefined;
+    created.developer_fee_percent = String(
+      input.developer_fee_percent ?? feeConfig?.source?.default?.fee_percent ?? "1.25",
+    );
+    if (feeConfig) created.fee_config = feeConfig;
     const source = (input.source ?? {}) as { currency?: string };
     const currency = String(source.currency || "usd");
     if (currency !== "usd") {
@@ -417,6 +437,26 @@ export class MockBridge implements BridgeClient {
     }
     this.store.virtualAccounts.push(created);
     return (await this.storeIdempotency(idempotencyKey, hash, created)) as BridgeVirtualAccount;
+  }
+
+  async updateVirtualAccount(customerId: string, virtualAccountId: string, input: Record<string, unknown>) {
+    await this.getCustomer(customerId);
+    if (input.developer_fee_percent !== undefined && input.fee_config !== undefined) {
+      throw new BridgeError("No se puede enviar developer_fee_percent y fee_config juntos.", 422);
+    }
+    const found = this.store.virtualAccounts.find((item) => item.id === virtualAccountId && item.customer_id === customerId);
+    if (!found) throw new BridgeError("Bridge no encontró la cuenta virtual.", 404);
+    const feeConfig = input.fee_config as BridgeVirtualAccount["fee_config"] | undefined;
+    if (input.developer_fee_percent !== undefined) {
+      found.developer_fee_percent = String(input.developer_fee_percent);
+      delete found.fee_config;
+    }
+    if (feeConfig) {
+      found.fee_config = feeConfig;
+      found.developer_fee_percent = String(feeConfig.source?.default?.fee_percent ?? found.developer_fee_percent);
+    }
+    await this.save();
+    return found;
   }
 
   async listWallets(customerId: string) {

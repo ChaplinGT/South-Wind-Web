@@ -4,6 +4,8 @@ import { audit } from "../audit";
 import { getBridge } from "../bridge";
 import { AppError } from "../errors";
 import { rails, type RailKey } from "../rails";
+import { bridgeDecimal } from "../pricing";
+import { getPricing } from "../settings";
 import type { z } from "zod";
 import type { beneficiarySchema } from "../validation";
 
@@ -22,6 +24,7 @@ export async function createBeneficiary(input: {
   const rail = rails[input.data.rail as RailKey];
   const payload = bridgePayload(input.data, rail.accountType, rail.currency);
   const bridge = getBridge();
+  const pricing = await getPricing();
   const external = await bridge.createExternalAccount(company.bridgeCustomerId, payload, randomUUID());
   const liquidation = await bridge.createLiquidationAddress(
     company.bridgeCustomerId,
@@ -31,6 +34,7 @@ export async function createBeneficiary(input: {
       external_account_id: external.id,
       destination_payment_rail: rail.bridgeRail,
       destination_currency: rail.currency,
+      custom_developer_fee_percent: bridgeDecimal(pricing.sendFeePercent),
     },
     randomUUID(),
   );

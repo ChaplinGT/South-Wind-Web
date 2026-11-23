@@ -12,10 +12,24 @@ export async function POST(request: Request) {
       companyId: session.companyId,
       actorId: session.sub,
       beneficiaryId: data.beneficiaryId,
-      bobAmount: data.bobAmount,
+      usdcAmount: data.usdcAmount,
       ip: clientIp(request),
     });
-    return apiOk({ ok: true, id: order.id, usdcAmount: order.usdcAmount, rate: order.rate }, 201);
+    return apiOk(
+      {
+        ok: true,
+        id: order.id,
+        rate: order.rate,
+        usdcAmount: order.usdcAmount,
+        principalBob: order.principalBob,
+        fixedFeeUsd: order.fixedFeeUsd,
+        fixedFeeBob: order.fixedFeeBob,
+        bobAmount: order.bobAmount,
+        sendFeeUsdc: order.sendFeeUsdc,
+        beneficiaryUsdc: order.beneficiaryUsdc,
+      },
+      201,
+    );
   } catch (error) {
     return apiError(error);
   }

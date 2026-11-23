@@ -1,6 +1,7 @@
 import { SimulateDepositForm } from "@/components/forms";
 import { prisma } from "@/lib/db";
 import { isMockMode } from "@/lib/env";
+import { getPricing } from "@/lib/settings";
 import { requireClient, requireCompany } from "@/lib/session";
 
 export const metadata = { title: "Cuenta virtual" };
@@ -23,7 +24,10 @@ type Instructions = {
 export default async function AccountPage() {
   const session = await requireClient();
   const company = await requireCompany(session.companyId);
-  const account = await prisma.virtualAccount.findFirst({ where: { companyId: company.id }, orderBy: { createdAt: "desc" } });
+  const [account, pricing] = await Promise.all([
+    prisma.virtualAccount.findFirst({ where: { companyId: company.id }, orderBy: { createdAt: "desc" } }),
+    getPricing(),
+  ]);
   const instructions = account ? (JSON.parse(account.instructionsJson) as Instructions) : null;
   const deposit = instructions?.source_deposit_instructions;
   const rows = deposit
@@ -67,6 +71,14 @@ export default async function AccountPage() {
               </div>
             ))}
           </dl>
+          <p className="mt-4 text-sm leading-6 text-teal-900/75">
+            Comisión South Wind: {pricing.vaDeveloperFeePercent} % de cada depósito.
+            {account.feeMode === "fee_config"
+              ? ` Bridge también cobra USD ${pricing.fixedReceiveFeeUsd} y después el porcentaje sobre el resto.`
+              : account.destinationMode === "southwind"
+                ? ` El cargo fijo de USD ${pricing.fixedReceiveFeeUsd} se descuenta cuando South Wind liquida a bolivianos. La tasa es la venta de Binance menos ${pricing.bobMarkupPercent} %, tomada en ese momento.`
+                : ` El cargo fijo de USD ${pricing.fixedReceiveFeeUsd} no se cobra porque el USDC llega a su billetera.`}
+          </p>
           {company.walletAddress ? (
             <p className="mt-6 text-sm text-teal-900/70">
               Destino USDC · {instructions?.destination?.payment_rail} · {company.walletAddress}

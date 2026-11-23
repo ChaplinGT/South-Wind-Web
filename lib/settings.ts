@@ -1,4 +1,5 @@
 import { prisma } from "./db";
+import { PRICING_DEFAULTS, type PricingSettings } from "./pricing";
 
 function envPercent(name: string, fallback: string): string {
   const raw = process.env[name]?.trim();
@@ -6,35 +7,87 @@ function envPercent(name: string, fallback: string): string {
   return raw;
 }
 
+const PRICING_KEYS = [
+  "sendFeePercent",
+  "walletSurchargePercent",
+  "fixedSendFeeUsd",
+  "vaDeveloperFeePercent",
+  "fixedReceiveFeeUsd",
+  "feeConfigEnabled",
+  "bobMarkupPercent",
+  "fxMarkupPercent",
+  "bridgeOrchestrationPercent",
+  "bridgeVaOrchestrationPercent",
+  "bridgeUsdtSupportPercent",
+  "bridgeVaAccountFeeUsd",
+  "bridgeVaAccountFeeMxn",
+  "bridgeVaAccountFeeBrlCop",
+  "bridgeWalletFeeUsd",
+  "bridgeKycUsdYear",
+  "bridgeKybUsdYear",
+] as const;
+
+function pricingFallback(key: (typeof PRICING_KEYS)[number]): string {
+  if (key === "bobMarkupPercent") return envPercent("BOB_MARKUP_PERCENT", PRICING_DEFAULTS.bobMarkupPercent);
+  if (key === "fxMarkupPercent") return envPercent("FX_MARKUP_PERCENT", envPercent("EUR_MARKUP_PERCENT", PRICING_DEFAULTS.fxMarkupPercent));
+  if (key === "vaDeveloperFeePercent") return envPercent("VA_DEVELOPER_FEE_PERCENT", PRICING_DEFAULTS.vaDeveloperFeePercent);
+  return PRICING_DEFAULTS[key];
+}
+
 async function readSetting(key: string, fallback: string): Promise<string> {
   const row = await prisma.setting.findUnique({ where: { key } });
   return row?.value || fallback;
+}
+
+export async function getPricing(): Promise<PricingSettings> {
+  const rows = await prisma.setting.findMany({ where: { key: { in: [...PRICING_KEYS] } } });
+  const stored = new Map(rows.map((row) => [row.key, row.value]));
+  const value = (key: (typeof PRICING_KEYS)[number]) => stored.get(key) || pricingFallback(key);
+  return {
+    sendFeePercent: value("sendFeePercent"),
+    walletSurchargePercent: value("walletSurchargePercent"),
+    fixedSendFeeUsd: value("fixedSendFeeUsd"),
+    vaDeveloperFeePercent: value("vaDeveloperFeePercent"),
+    fixedReceiveFeeUsd: value("fixedReceiveFeeUsd"),
+    feeConfigEnabled: value("feeConfigEnabled") === "true",
+    bobMarkupPercent: value("bobMarkupPercent"),
+    fxMarkupPercent: value("fxMarkupPercent"),
+    bridgeOrchestrationPercent: value("bridgeOrchestrationPercent"),
+    bridgeVaOrchestrationPercent: value("bridgeVaOrchestrationPercent"),
+    bridgeUsdtSupportPercent: value("bridgeUsdtSupportPercent"),
+    bridgeVaAccountFeeUsd: value("bridgeVaAccountFeeUsd"),
+    bridgeVaAccountFeeMxn: value("bridgeVaAccountFeeMxn"),
+    bridgeVaAccountFeeBrlCop: value("bridgeVaAccountFeeBrlCop"),
+    bridgeWalletFeeUsd: value("bridgeWalletFeeUsd"),
+    bridgeKycUsdYear: value("bridgeKycUsdYear"),
+    bridgeKybUsdYear: value("bridgeKybUsdYear"),
+  };
+}
+
+export async function setPricing(input: Omit<PricingSettings, "feeConfigEnabled"> & { feeConfigEnabled: boolean }) {
+  const entries: [string, string][] = PRICING_KEYS.map((key) => [
+    key,
+    key === "feeConfigEnabled" ? (input.feeConfigEnabled ? "true" : "false") : input[key],
+  ]);
+  for (const [key, value] of entries) {
+    await prisma.setting.upsert({ where: { key }, update: { value }, create: { key, value } });
+  }
 }
 
 export async function getFeePercent(): Promise<string> {
   return readSetting("feePercent", envPercent("SOUTH_WIND_FEE_PERCENT", "0.50"));
 }
 
-/** Margen USDT/BOB sobre Binance. Por defecto 0,50 %. */
 export async function getBobMarkupPercent(): Promise<string> {
-  return readSetting("bobMarkupPercent", envPercent("BOB_MARKUP_PERCENT", "0.50"));
+  return readSetting("bobMarkupPercent", pricingFallback("bobMarkupPercent"));
 }
 
-/** Margen para EUR y el resto de monedas distintas de BOB, sobre las tasas de Bridge. Por defecto 0,10 %. */
 export async function getFxMarkupPercent(): Promise<string> {
-  return readSetting("fxMarkupPercent", envPercent("FX_MARKUP_PERCENT", envPercent("EUR_MARKUP_PERCENT", "0.10")));
-}
-
-export async function getPayoutDirectFeePercent(): Promise<string> {
-  return readSetting("payoutDirectFeePercent", "0");
-}
-
-export async function getPayoutWalletFeePercent(): Promise<string> {
-  return readSetting("payoutWalletFeePercent", "0");
+  return readSetting("fxMarkupPercent", pricingFallback("fxMarkupPercent"));
 }
 
 export async function getVaDeveloperFeePercent(): Promise<string> {
-  return readSetting("vaDeveloperFeePercent", envPercent("VA_DEVELOPER_FEE_PERCENT", envPercent("SOUTH_WIND_FEE_PERCENT", "0.50")));
+  return readSetting("vaDeveloperFeePercent", pricingFallback("vaDeveloperFeePercent"));
 }
 
 export async function getSouthWindWallet(chain: string): Promise<string> {
@@ -47,16 +100,6 @@ export async function setFeePercent(value: string) {
     update: { value },
     create: { key: "feePercent", value },
   });
-}
-
-export async function setRouteFees(direct: string, wallet: string, vaFee: string) {
-  for (const [key, value] of [
-    ["payoutDirectFeePercent", direct],
-    ["payoutWalletFeePercent", wallet],
-    ["vaDeveloperFeePercent", vaFee],
-  ] as const) {
-    await prisma.setting.upsert({ where: { key }, update: { value }, create: { key, value } });
-  }
 }
 
 export async function setSouthWindWallet(chain: string, address: string) {

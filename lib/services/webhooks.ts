@@ -1,6 +1,8 @@
 import { prisma } from "../db";
 import { audit } from "../audit";
 import { mapKybStatus } from "../kyb";
+import { receiveNetUsdc } from "../pricing";
+import { getPricing } from "../settings";
 import { isFailureState } from "./ledger";
 import { provisionCompany } from "./provision";
 import type { BridgeWebhookEvent } from "../bridge/types";
@@ -111,14 +113,23 @@ async function applyVirtualAccount(event: BridgeWebhookEvent) {
     const existing = await prisma.liquidacionBob.findFirst({ where: { companyId: company.id, reference } });
     if (existing) return;
     const bank = await prisma.bolivianAccount.findFirst({ where: { companyId: company.id, isDefault: true } });
+    const pricing = await getPricing();
+    const bridgeCollectsFlat = virtualAccount.feeMode === "fee_config";
+    const net = receiveNetUsdc(amount, pricing.fixedReceiveFeeUsd, !bridgeCollectsFlat);
     await prisma.liquidacionBob.create({
       data: {
         companyId: company.id,
         virtualAccountId: virtualAccount.id,
         bolivianAccountId: bank?.id,
-        usdcAmount: amount,
+        usdcAmount: net.gross,
+        fixedFeeUsd: bridgeCollectsFlat ? pricing.fixedReceiveFeeUsd : net.fixedFeeUsd,
+        fixedFeeBearer: bridgeCollectsFlat ? "bridge" : "portal",
+        netUsdcAmount: net.net,
         status: "pendiente",
         reference,
+        adminNote: bridgeCollectsFlat
+          ? "Bridge ya retuvo el cargo fijo con fee_config. La tasa se fija al marcar pagado."
+          : "El cargo fijo se descuenta en esta liquidación. La tasa se fija al marcar pagado.",
       },
     });
     return;

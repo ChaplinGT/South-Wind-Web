@@ -2,7 +2,7 @@ import { PaymentForm } from "@/components/forms";
 import { prisma } from "@/lib/db";
 import { canTransact } from "@/lib/kyb";
 import { companyBalance } from "@/lib/services/ledger";
-import { getFeePercent } from "@/lib/settings";
+import { getPricing } from "@/lib/settings";
 import { requireClient, requireCompany } from "@/lib/session";
 
 export const metadata = { title: "Enviar pago" };
@@ -14,7 +14,7 @@ export default async function SendPage() {
     where: { companyId: company.id, status: "active" },
     orderBy: { createdAt: "desc" },
   });
-  const [balance, feePercent] = await Promise.all([companyBalance(company.id), getFeePercent()]);
+  const [balance, pricing] = await Promise.all([companyBalance(company.id), getPricing()]);
   return (
     <div className="space-y-6">
       <div>
@@ -26,7 +26,9 @@ export default async function SendPage() {
       {canTransact(company.kybStatus) ? (
         <PaymentForm
           balance={balance}
-          feePercent={feePercent}
+          sendFeePercent={pricing.sendFeePercent}
+          walletSurchargePercent={pricing.walletSurchargePercent}
+          fixedSendFeeUsd={pricing.fixedSendFeeUsd}
           beneficiaries={beneficiaries.map((item) => ({
             id: item.id,
             nickname: item.nickname,

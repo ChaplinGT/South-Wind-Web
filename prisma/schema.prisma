@@ -87,6 +87,9 @@ model PaymentOrder {
   beneficiaryId String
   beneficiary   Beneficiary @relation(fields: [beneficiaryId], references: [id])
   bobAmount     String
+  principalBob  String?
+  fixedFeeUsd   String?
+  fixedFeeBob   String?
   rate          String
   usdcAmount    String
   feePercent    String
@@ -105,6 +108,12 @@ model LiquidacionBob {
   virtualAccount     VirtualAccount? @relation(fields: [virtualAccountId], references: [id])
   bolivianAccountId  String?
   usdcAmount         String
+  fixedFeeUsd        String?
+  fixedFeeBearer     String?
+  netUsdcAmount      String?
+  rate               String?
+  bobAmount          String?
+  quotedAt           DateTime?
   status             String          @default("pendiente")
   reference          String?
   adminNote          String?
@@ -152,6 +161,7 @@ model VirtualAccount {
   status                 String
   currency               String
   destinationMode        String?
+  feeMode                String?
   instructionsJson       String
   createdAt              DateTime @default(now())
   liquidaciones          LiquidacionBob[]

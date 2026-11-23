@@ -1,8 +1,9 @@
 import { apiError, apiOk } from "@/lib/api";
 import { audit, clientIp } from "@/lib/audit";
-import { setRouteFees, setSouthWindWallet } from "@/lib/settings";
+import { syncPricingToBridge } from "@/lib/services/pricing-sync";
+import { setPricing, setSouthWindWallet } from "@/lib/settings";
 import { requireAdmin } from "@/lib/session";
-import { routeFeeSchema } from "@/lib/validation";
+import { pricingSchema } from "@/lib/validation";
 import { z } from "zod";
 
 export async function POST(request: Request) {
@@ -22,17 +23,18 @@ export async function POST(request: Request) {
       });
       return apiOk({ ok: true });
     }
-    const data = routeFeeSchema.parse(body);
-    await setRouteFees(data.payoutDirectFeePercent, data.payoutWalletFeePercent, data.vaDeveloperFeePercent);
+    const data = pricingSchema.parse(body);
+    await setPricing({ ...data, feeConfigEnabled: data.feeConfigEnabled === "true" });
+    const sync = await syncPricingToBridge();
     await audit({
       actorId: session.sub,
       action: "fee.update",
       entityType: "setting",
-      entityId: "routeFees",
+      entityId: "pricing",
       ip: clientIp(request),
-      metadata: data,
+      metadata: { ...data, ...sync },
     });
-    return apiOk({ ok: true });
+    return apiOk({ ok: true, ...sync });
   } catch (error) {
     return apiError(error);
   }

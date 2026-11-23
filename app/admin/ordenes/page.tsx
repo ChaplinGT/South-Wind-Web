@@ -16,7 +16,9 @@ export default async function OrdersPage() {
       {orders.map((order) => (
         <article key={order.id} className="card">
           <p className="font-semibold">{order.company.legalName} → {order.beneficiary.nickname}</p>
-          <p className="text-sm">{formatAmount(order.bobAmount, "bob")} · tasa {order.rate} · {order.usdcAmount} USDC · comisión {order.feePercent} %</p>
+          <p className="text-sm">
+            {order.usdcAmount} USDC · tasa {order.rate} · principal {order.principalBob ? formatAmount(order.principalBob, "bob") : "—"} · cargo fijo {order.fixedFeeUsd || "—"} USD ({order.fixedFeeBob ? formatAmount(order.fixedFeeBob, "bob") : "—"}) · total {formatAmount(order.bobAmount, "bob")} · comisión de la dirección {order.feePercent} %
+          </p>
           <p className="text-xs text-teal-900/60">{formatDateTime(order.createdAt)} · {order.status} {order.txHash ? `· ${order.txHash}` : ""}</p>
           <p className="break-all text-xs">{order.beneficiary.liquidationAddress}</p>
           <OrderActions id={order.id} />
