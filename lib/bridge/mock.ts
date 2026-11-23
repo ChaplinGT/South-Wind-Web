@@ -285,6 +285,20 @@ export class MockBridge implements BridgeClient {
     return body;
   }
 
+  async createLiquidationAddress(customerId: string, input: Record<string, unknown>, idempotencyKey: string) {
+    await this.hydrate();
+    const hash = JSON.stringify({ customerId, ...input });
+    const replay = this.remember(idempotencyKey, hash, null);
+    if (replay) return replay as { id: string; address: string; chain: string; currency: string };
+    const created = {
+      id: randomUUID(),
+      address: `0x${randomUUID().replace(/-/g, "")}aa`.slice(0, 42),
+      chain: String(input.chain || "base"),
+      currency: String(input.currency || "usdc"),
+    };
+    return (await this.storeIdempotency(idempotencyKey, hash, created)) as typeof created;
+  }
+
   async getExchangeRate() {
     await this.hydrate();
     return { midmarket_rate: "0.9200", buy_rate: "0.9250", sell_rate: "0.9150" };

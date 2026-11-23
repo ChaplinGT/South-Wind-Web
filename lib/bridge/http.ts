@@ -63,6 +63,14 @@ export class BridgeHttpClient implements BridgeClient {
     }
   }
 
+  createLiquidationAddress(customerId: string, input: Record<string, unknown>, idempotencyKey: string) {
+    return this.request<{ id: string; address: string; chain: string; currency: string }>(
+      "POST",
+      `/customers/${encodeURIComponent(customerId)}/liquidation_addresses`,
+      { body: input, idempotencyKey },
+    );
+  }
+
   getExchangeRate(from: string, to: string) {
     const query = new URLSearchParams({ from, to });
     return this.request<{ buy_rate?: string; sell_rate?: string; midmarket_rate?: string }>(

@@ -21,7 +21,19 @@ export async function createBeneficiary(input: {
   }
   const rail = rails[input.data.rail as RailKey];
   const payload = bridgePayload(input.data, rail.accountType, rail.currency);
-  const external = await getBridge().createExternalAccount(company.bridgeCustomerId, payload, randomUUID());
+  const bridge = getBridge();
+  const external = await bridge.createExternalAccount(company.bridgeCustomerId, payload, randomUUID());
+  const liquidation = await bridge.createLiquidationAddress(
+    company.bridgeCustomerId,
+    {
+      currency: "usdc",
+      chain: input.data.chain,
+      external_account_id: external.id,
+      destination_payment_rail: rail.bridgeRail,
+      destination_currency: rail.currency,
+    },
+    randomUUID(),
+  );
   const accountNumber =
     input.data.accountNumber || input.data.iban || input.data.clabe || input.data.pixKey || "";
   const beneficiary = await prisma.beneficiary.create({
@@ -41,6 +53,9 @@ export async function createBeneficiary(input: {
         city: input.data.city,
         country: input.data.country || rail.country,
       }),
+      liquidationId: liquidation.id,
+      liquidationAddress: liquidation.address,
+      liquidationChain: liquidation.chain,
     },
   });
   await audit({

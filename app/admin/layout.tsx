@@ -10,6 +10,8 @@ const items = [
   { href: "/admin/vincular", label: "Vincular cliente" },
   { href: "/admin/transferencias", label: "Transferencias" },
   { href: "/admin/conversiones", label: "Conversiones" },
+  { href: "/admin/ordenes", label: "Órdenes de pago" },
+  { href: "/admin/liquidaciones", label: "Liquidaciones BOB" },
   { href: "/admin/comision", label: "Comisión" },
   { href: "/admin/auditoria", label: "Auditoría" },
 ];

@@ -7,7 +7,7 @@ import { assertIdempotency, beginIdempotency, finishIdempotency, hashRequest } f
 import { canTransact } from "../kyb";
 import { add, cmp, feeAmount } from "../money";
 import { isRail, rails } from "../rails";
-import { getFeePercent } from "../settings";
+import { getPayoutWalletFeePercent } from "../settings";
 import { companyBalance } from "./ledger";
 
 export async function createPayout(input: {
@@ -47,7 +47,7 @@ export async function createPayout(input: {
     throw new AppError("Seleccione un beneficiario activo.", 422);
   }
 
-  const feePercent = await getFeePercent();
+  const feePercent = await getPayoutWalletFeePercent();
   const fee = feeAmount(input.amount, feePercent);
   const total = add(input.amount, fee);
   const balance = await companyBalance(company.id);

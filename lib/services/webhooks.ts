@@ -103,6 +103,26 @@ async function applyVirtualAccount(event: BridgeWebhookEvent) {
   const company = await prisma.company.findUnique({ where: { bridgeCustomerId: customerId } });
   if (!company) return;
   const reference = `VA-${eventId.slice(0, 12)}`;
+  const vaId = String(object.virtual_account_id ?? "");
+  const virtualAccount = vaId
+    ? await prisma.virtualAccount.findFirst({ where: { bridgeVirtualAccountId: vaId, companyId: company.id } })
+    : null;
+  if (virtualAccount?.destinationMode === "southwind") {
+    const existing = await prisma.liquidacionBob.findFirst({ where: { companyId: company.id, reference } });
+    if (existing) return;
+    const bank = await prisma.bolivianAccount.findFirst({ where: { companyId: company.id, isDefault: true } });
+    await prisma.liquidacionBob.create({
+      data: {
+        companyId: company.id,
+        virtualAccountId: virtualAccount.id,
+        bolivianAccountId: bank?.id,
+        usdcAmount: amount,
+        status: "pendiente",
+        reference,
+      },
+    });
+    return;
+  }
   const duplicate = await prisma.ledgerEntry.findFirst({ where: { companyId: company.id, reference } });
   if (duplicate) return;
   await prisma.ledgerEntry.create({

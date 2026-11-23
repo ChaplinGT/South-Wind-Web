@@ -48,8 +48,26 @@ export const enableProfileSchema = z.object({
 export const virtualAccountRequestSchema = z.object({
   companyId: z.string().min(1),
   currency: z.enum(["usd", "eur", "brl", "mxn"]),
-  destination: z.enum(["bridge_wallet", "external"]),
+  destination: z.enum(["southwind", "bridge_wallet", "external"]),
+  chain: z.enum(["ethereum", "polygon", "base", "arbitrum", "solana", "tron"]).optional().default("base"),
   externalWalletId: z.string().optional().default(""),
+});
+
+export const paymentOrderSchema = z.object({
+  beneficiaryId: z.string().min(1),
+  bobAmount: amount,
+});
+
+const percentField = z
+  .string()
+  .trim()
+  .regex(/^\d+(\.\d{1,2})?$/, "Ingrese un porcentaje válido.")
+  .refine((value) => Number(value) >= 0 && Number(value) <= 20, "El margen debe estar entre 0 y 20 %.");
+
+export const routeFeeSchema = z.object({
+  payoutDirectFeePercent: percentField,
+  payoutWalletFeePercent: percentField,
+  vaDeveloperFeePercent: percentField,
 });
 
 export const registerSchema = z.object({
@@ -98,6 +116,7 @@ export const beneficiarySchema = z
     postalCode: z.string().trim().optional().default(""),
     country: z.string().trim().optional().default(""),
     accountKind: z.enum(["checking", "savings"]).optional().default("checking"),
+    chain: z.enum(["ethereum", "polygon", "base", "arbitrum", "solana", "tron"]).optional().default("base"),
   })
   .superRefine((value, ctx) => {
     const issue = (path: string, message: string) =>
@@ -170,15 +189,9 @@ export const inviteSchema = z.object({
   password,
 });
 
-const markupField = z
-  .string()
-  .trim()
-  .regex(/^\d+(\.\d{1,2})?$/, "Ingrese un porcentaje válido.")
-  .refine((value) => Number(value) >= 0 && Number(value) <= 20, "El margen debe estar entre 0 y 20 %.");
-
 export const markupSchema = z.object({
-  bobMarkupPercent: markupField,
-  fxMarkupPercent: markupField,
+  bobMarkupPercent: percentField,
+  fxMarkupPercent: percentField,
 });
 
 export const feeSchema = z.object({

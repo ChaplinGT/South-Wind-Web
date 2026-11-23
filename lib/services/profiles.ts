@@ -8,6 +8,7 @@ import { provisionCompany } from "./provision";
 import type { z } from "zod";
 import type { enableProfileSchema, virtualAccountRequestSchema } from "../validation";
 import { WALLET_NETWORKS } from "../service-rails";
+import { getSouthWindWallet, getVaDeveloperFeePercent } from "../settings";
 
 export async function enableProfile(userId: string, input: z.infer<typeof enableProfileSchema>, ip?: string | null) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -68,8 +69,16 @@ export async function openReceiveAccount(userId: string, input: z.infer<typeof v
   const company = await prisma.company.findFirst({ where: { id: input.companyId, ownerUserId: userId } });
   if (!company?.bridgeCustomerId) throw new AppError("Ese perfil todavía no está vinculado a Bridge.", 409);
   const bridge = getBridge();
+  const fee = await getVaDeveloperFeePercent();
   let destination: Record<string, unknown>;
-  if (input.destination === "bridge_wallet") {
+  let destinationMode = input.destination;
+  if (input.destination === "southwind") {
+    const address = await getSouthWindWallet(input.chain);
+    if (!address) throw new AppError("South Wind todavía no configuró la billetera USDC de esa red.", 409);
+    const bank = await prisma.bolivianAccount.findFirst({ where: { companyId: company.id, isDefault: true } });
+    if (!bank) throw new AppError("Registre su cuenta bancaria en Bolivia antes de pedir la liquidación en bolivianos.", 422);
+    destination = { currency: "usdc", payment_rail: input.chain, address };
+  } else if (input.destination === "bridge_wallet") {
     if (!company.bridgeWalletId) {
       const wallet = await bridge.createWallet(company.bridgeCustomerId, { chain: "base" }, randomUUID());
       await prisma.company.update({
@@ -92,7 +101,7 @@ export async function openReceiveAccount(userId: string, input: z.infer<typeof v
   }
   const account = await bridge.createVirtualAccount(
     company.bridgeCustomerId,
-    { developer_fee_percent: "0.50", source: { currency: input.currency }, destination },
+    { developer_fee_percent: fee, source: { currency: input.currency }, destination },
     randomUUID(),
   );
   await prisma.virtualAccount.create({
@@ -101,6 +110,7 @@ export async function openReceiveAccount(userId: string, input: z.infer<typeof v
       bridgeVirtualAccountId: account.id,
       status: account.status,
       currency: input.currency,
+      destinationMode,
       instructionsJson: JSON.stringify(account),
     },
   });

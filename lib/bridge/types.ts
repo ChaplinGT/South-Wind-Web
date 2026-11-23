@@ -150,4 +150,9 @@ export interface BridgeClient {
     idempotencyKey: string,
   ): Promise<Record<string, unknown>>;
   getExchangeRate(from: string, to: string): Promise<{ buy_rate?: string; sell_rate?: string; midmarket_rate?: string }>;
+  createLiquidationAddress(
+    customerId: string,
+    input: Record<string, unknown>,
+    idempotencyKey: string,
+  ): Promise<{ id: string; address: string; chain: string; currency: string }>;
 }

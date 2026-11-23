@@ -120,10 +120,16 @@ export function ReceiveAccountForm({
           <option value="mxn">MXN · SPEI</option>
         </select>
       </label>
-      <label><span className="label">Destino USDC</span>
+      <label><span className="label">Destino del USDC</span>
         <select className="input" name="destination">
-          <option value="bridge_wallet">Billetera Bridge</option>
-          <option value="external">Billetera externa registrada</option>
+          <option value="southwind">South Wind liquida en bolivianos</option>
+          <option value="bridge_wallet">Mi billetera Bridge</option>
+          <option value="external">Mi billetera externa registrada</option>
+        </select>
+      </label>
+      <label><span className="label">Red, si liquida South Wind</span>
+        <select className="input" name="chain" defaultValue="base">
+          {["base", "ethereum", "polygon", "arbitrum", "solana"].map((chain) => <option key={chain}>{chain}</option>)}
         </select>
       </label>
       <label><span className="label">Billetera externa</span>

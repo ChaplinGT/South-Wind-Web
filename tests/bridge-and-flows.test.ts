@@ -11,6 +11,7 @@ import { compileStatement } from "@/lib/statements/build";
 import { renderStatementPdf } from "@/lib/statements/pdf";
 import { isValidEmail, otherAdminAction, resolveAdminEmail } from "@/lib/admin-seed";
 import { decodeHexQuantity, encodeBalanceOf, formatToken } from "@/lib/chains";
+import { usdcForBobPayment } from "@/lib/orders";
 import { applySpread, averageNearMedian, pricesFromBinanceBody } from "@/lib/rates";
 import { railsFromEndorsements } from "@/lib/service-rails";
 import { appUrl, isMockMode } from "@/lib/env";
@@ -218,6 +219,8 @@ describe("extractos, comisiones y validación", () => {
     ]);
     expect(encodeBalanceOf("0x00000000000000000000000000000000000000aa")).toMatch(/^0x70a08231/);
     expect(formatToken(decodeHexQuantity("0x0f4240"), 6)).toBe("1.00");
+    expect(usdcForBobPayment("690.00", 6.9, "0")).toEqual({ rate: "6.9000", usdcAmount: "100.00" });
+    expect(usdcForBobPayment("690.00", 6.9, "1")).toMatchObject({ usdcAmount: "99.00" });
   });
 
   it("calcula la comisión de referencia", () => {

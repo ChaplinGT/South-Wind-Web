@@ -1,10 +1,27 @@
-import { FeeForm, MarkupForm } from "@/components/forms";
-import { getBobMarkupPercent, getFeePercent, getFxMarkupPercent } from "@/lib/settings";
+import { FeeForm, MarkupForm, RouteFeeForm } from "@/components/forms";
+import {
+  getBobMarkupPercent,
+  getFeePercent,
+  getFxMarkupPercent,
+  getPayoutDirectFeePercent,
+  getPayoutWalletFeePercent,
+  getSouthWindWallet,
+  getVaDeveloperFeePercent,
+} from "@/lib/settings";
 
 export const metadata = { title: "Comisión" };
 
 export default async function FeePage() {
-  const [feePercent, bob, fx] = await Promise.all([getFeePercent(), getBobMarkupPercent(), getFxMarkupPercent()]);
+  const chains = ["base", "ethereum", "polygon", "arbitrum", "solana", "tron"];
+  const [feePercent, bob, fx, direct, wallet, vaFee, ...addresses] = await Promise.all([
+    getFeePercent(),
+    getBobMarkupPercent(),
+    getFxMarkupPercent(),
+    getPayoutDirectFeePercent(),
+    getPayoutWalletFeePercent(),
+    getVaDeveloperFeePercent(),
+    ...chains.map((chain) => getSouthWindWallet(chain)),
+  ]);
   return (
     <div className="space-y-6">
       <div>
@@ -15,6 +32,12 @@ export default async function FeePage() {
       </div>
       <FeeForm feePercent={feePercent} />
       <MarkupForm bob={bob} fx={fx} />
+      <RouteFeeForm
+        direct={direct}
+        wallet={wallet}
+        vaFee={vaFee}
+        wallets={chains.map((chain, index) => ({ chain, address: addresses[index] || "" }))}
+      />
     </div>
   );
 }

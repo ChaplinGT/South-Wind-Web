@@ -25,12 +25,43 @@ export async function getFxMarkupPercent(): Promise<string> {
   return readSetting("fxMarkupPercent", envPercent("FX_MARKUP_PERCENT", envPercent("EUR_MARKUP_PERCENT", "0.10")));
 }
 
+export async function getPayoutDirectFeePercent(): Promise<string> {
+  return readSetting("payoutDirectFeePercent", "0");
+}
+
+export async function getPayoutWalletFeePercent(): Promise<string> {
+  return readSetting("payoutWalletFeePercent", "0");
+}
+
+export async function getVaDeveloperFeePercent(): Promise<string> {
+  return readSetting("vaDeveloperFeePercent", envPercent("VA_DEVELOPER_FEE_PERCENT", envPercent("SOUTH_WIND_FEE_PERCENT", "0.50")));
+}
+
+export async function getSouthWindWallet(chain: string): Promise<string> {
+  return readSetting(`swWallet:${chain}`, "");
+}
+
 export async function setFeePercent(value: string) {
   await prisma.setting.upsert({
     where: { key: "feePercent" },
     update: { value },
     create: { key: "feePercent", value },
   });
+}
+
+export async function setRouteFees(direct: string, wallet: string, vaFee: string) {
+  for (const [key, value] of [
+    ["payoutDirectFeePercent", direct],
+    ["payoutWalletFeePercent", wallet],
+    ["vaDeveloperFeePercent", vaFee],
+  ] as const) {
+    await prisma.setting.upsert({ where: { key }, update: { value }, create: { key, value } });
+  }
+}
+
+export async function setSouthWindWallet(chain: string, address: string) {
+  const key = `swWallet:${chain}`;
+  await prisma.setting.upsert({ where: { key }, update: { value: address.trim() }, create: { key, value: address.trim() } });
 }
 
 export async function setMarkups(bob: string, fx: string) {

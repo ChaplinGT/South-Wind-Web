@@ -224,6 +224,11 @@ export function BeneficiaryForm() {
       <h2 className="font-display text-2xl">Nuevo beneficiario</h2>
       {form.error ? <Alert tone="bad">{form.error}</Alert> : null}
       <label><span className="label">Alias</span><input className="input" name="nickname" required /><FieldError message={form.fields.nickname} /></label>
+      <label><span className="label">Red de la dirección de liquidación (USDC)</span>
+        <select className="input" name="chain" defaultValue="base">
+          {["ethereum", "polygon", "base", "arbitrum", "solana", "tron"].map((chain) => <option key={chain} value={chain}>{chain}</option>)}
+        </select>
+      </label>
       <label>
         <span className="label">Riel</span>
         <select className="input" name="rail" value={rail} onChange={(event) => setRail(event.target.value as RailKey)}>
@@ -407,6 +412,71 @@ export function FeeForm({ feePercent }: { feePercent: string }) {
       </label>
       <button className="btn-primary" disabled={form.pending} type="submit">Guardar comisión</button>
     </form>
+  );
+}
+
+export function RouteFeeForm({
+  direct,
+  wallet,
+  vaFee,
+  wallets,
+}: {
+  direct: string;
+  wallet: string;
+  vaFee: string;
+  wallets: { chain: string; address: string }[];
+}) {
+  const form = useFormError();
+  const router = useRouter();
+  async function saveFees(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    form.setPending(true);
+    form.setError(null);
+    try {
+      await postJson("/api/admin/tarifas-ruta", Object.fromEntries(new FormData(event.currentTarget).entries()));
+      router.refresh();
+    } catch (error) {
+      form.setError((error as Error).message);
+    } finally {
+      form.setPending(false);
+    }
+  }
+  async function saveWallet(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    form.setPending(true);
+    form.setError(null);
+    try {
+      const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+      await postJson("/api/admin/tarifas-ruta", { kind: "wallet", ...data });
+      router.refresh();
+    } catch (error) {
+      form.setError((error as Error).message);
+    } finally {
+      form.setPending(false);
+    }
+  }
+  return (
+    <div className="space-y-4">
+      {form.error ? <Alert tone="bad">{form.error}</Alert> : null}
+      <form onSubmit={saveFees} className="card max-w-lg space-y-3">
+        <h2 className="font-display text-2xl">Comisiones por vía</h2>
+        <label><span className="label">Pago directo a la dirección de liquidación (%)</span><input className="input" name="payoutDirectFeePercent" defaultValue={direct} /></label>
+        <label><span className="label">Pago desde billetera Bridge (%)</span><input className="input" name="payoutWalletFeePercent" defaultValue={wallet} /></label>
+        <label><span className="label">developer_fee_percent de cuentas virtuales</span><input className="input" name="vaDeveloperFeePercent" defaultValue={vaFee} /></label>
+        <p className="help">Las dos primeras empiezan en 0 hasta que defina la tarifa. La de cuentas virtuales es el porcentaje que Bridge retiene al recibir.</p>
+        <button className="btn-primary" disabled={form.pending} type="submit">Guardar tarifas</button>
+      </form>
+      <form onSubmit={saveWallet} className="card max-w-lg space-y-3">
+        <h2 className="font-display text-2xl">Billeteras USDC de South Wind</h2>
+        <p className="text-sm text-teal-900/70">Destino cuando el cliente elige que South Wind liquide el depósito en bolivianos.</p>
+        <ul className="text-xs text-teal-900/70">{wallets.map((item) => <li key={item.chain}>{item.chain}: {item.address || "sin configurar"}</li>)}</ul>
+        <label><span className="label">Red</span>
+          <select className="input" name="chain">{["base", "ethereum", "polygon", "arbitrum", "solana", "tron"].map((chain) => <option key={chain}>{chain}</option>)}</select>
+        </label>
+        <label><span className="label">Dirección</span><input className="input" name="address" required /></label>
+        <button className="btn-secondary" disabled={form.pending} type="submit">Guardar dirección</button>
+      </form>
+    </div>
   );
 }
 

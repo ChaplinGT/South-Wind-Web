@@ -37,6 +37,9 @@ async function main() {
     ["feePercent", process.env.SOUTH_WIND_FEE_PERCENT || "0.50"],
     ["bobMarkupPercent", process.env.BOB_MARKUP_PERCENT || "0.50"],
     ["fxMarkupPercent", process.env.FX_MARKUP_PERCENT || process.env.EUR_MARKUP_PERCENT || "0.10"],
+    ["payoutDirectFeePercent", "0"],
+    ["payoutWalletFeePercent", "0"],
+    ["vaDeveloperFeePercent", process.env.VA_DEVELOPER_FEE_PERCENT || process.env.SOUTH_WIND_FEE_PERCENT || "0.50"],
   ];
   for (const [key, value] of defaults) {
     await prisma.setting.upsert({ where: { key }, update: {}, create: { key, value } });
