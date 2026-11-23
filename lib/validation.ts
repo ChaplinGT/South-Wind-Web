@@ -25,6 +25,33 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Ingrese su contraseña."),
 });
 
+export const accountSignupSchema = z.object({
+  name: z.string().trim().min(3, "Ingrese su nombre.").max(120),
+  email,
+  phone: z.string().trim().min(6, "Ingrese un teléfono.").max(30),
+  password,
+});
+
+export const enableProfileSchema = z.object({
+  kind: z.enum(["persona", "empresa"]),
+  funding: z.enum(["bridge_wallet", "external"]),
+  network: z.string().trim().optional().default(""),
+  address: z.string().trim().optional().default(""),
+  legalName: z.string().trim().optional().default(""),
+  tradeName: z.string().trim().optional().default(""),
+  nit: z.string().trim().optional().default(""),
+  city: z.string().trim().optional().default(""),
+  addressLine: z.string().trim().optional().default(""),
+  clientType: z.enum(["importador", "cuenta_eeuu", "exportador", "persona"]).optional().default("importador"),
+});
+
+export const virtualAccountRequestSchema = z.object({
+  companyId: z.string().min(1),
+  currency: z.enum(["usd", "eur", "brl", "mxn"]),
+  destination: z.enum(["bridge_wallet", "external"]),
+  externalWalletId: z.string().optional().default(""),
+});
+
 export const registerSchema = z.object({
   contactName: z.string().trim().min(3, "Ingrese el nombre de la persona de contacto.").max(120),
   email,
@@ -141,6 +168,17 @@ export const inviteSchema = z.object({
   address: z.string().trim().min(5, "Ingrese la dirección.").max(180),
   clientType: z.enum(["importador", "cuenta_eeuu", "exportador"]),
   password,
+});
+
+const markupField = z
+  .string()
+  .trim()
+  .regex(/^\d+(\.\d{1,2})?$/, "Ingrese un porcentaje válido.")
+  .refine((value) => Number(value) >= 0 && Number(value) <= 20, "El margen debe estar entre 0 y 20 %.");
+
+export const markupSchema = z.object({
+  bobMarkupPercent: markupField,
+  fxMarkupPercent: markupField,
 });
 
 export const feeSchema = z.object({

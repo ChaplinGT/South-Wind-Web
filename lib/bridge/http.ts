@@ -63,6 +63,14 @@ export class BridgeHttpClient implements BridgeClient {
     }
   }
 
+  getExchangeRate(from: string, to: string) {
+    const query = new URLSearchParams({ from, to });
+    return this.request<{ buy_rate?: string; sell_rate?: string; midmarket_rate?: string }>(
+      "GET",
+      `/exchange_rates?${query.toString()}`,
+    );
+  }
+
   listCustomers(params?: { limit?: number }) {
     const query = params?.limit ? `?limit=${params.limit}` : "";
     return this.request<BridgeList<BridgeCustomer>>("GET", `/customers${query}`);

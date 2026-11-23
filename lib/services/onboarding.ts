@@ -8,49 +8,31 @@ import { AppError } from "../errors";
 import { isMockMode } from "../env";
 import { mapKybStatus } from "../kyb";
 import type { z } from "zod";
-import type { inviteSchema, registerSchema } from "../validation";
+import type { inviteSchema } from "../validation";
+import { accountSignupSchema } from "../validation";
 import { provisionCompany } from "./provision";
 
-export async function registerCompany(input: z.infer<typeof registerSchema>, ip?: string | null) {
-  const duplicate = await prisma.company.findUnique({ where: { nit: input.nit } });
-  if (duplicate) throw new AppError("Ya existe una empresa registrada con ese NIT.", 409);
+export async function registerAccount(input: z.infer<typeof accountSignupSchema>, ip?: string | null) {
   const emailTaken = await prisma.user.findUnique({ where: { email: input.email.toLowerCase() } });
-  if (emailTaken) throw new AppError("Ese correo ya tiene una cuenta. Inicie sesión.", 409);
-
-  const company = await prisma.company.create({
-    data: {
-      legalName: input.legalName,
-      tradeName: input.tradeName,
-      nit: input.nit,
-      email: input.email.toLowerCase(),
-      phone: input.phone,
-      address: input.address,
-      city: input.city,
-      clientType: input.clientType,
-      contactName: input.contactName,
-      kybStatus: "not_started",
-      onboardingSource: "self",
-    },
-  });
+  if (emailTaken) throw new AppError("Ese correo ya tiene una cuenta de South Wind. Inicie sesión.", 409);
   const user = await prisma.user.create({
     data: {
       email: input.email.toLowerCase(),
       passwordHash: bcrypt.hashSync(input.password, 10),
-      name: input.contactName,
+      name: input.name,
+      phone: input.phone,
       role: "client",
-      companyId: company.id,
     },
   });
   await audit({
     actorId: user.id,
-    companyId: company.id,
     action: "customer.register",
-    entityType: "company",
-    entityId: company.id,
+    entityType: "user",
+    entityId: user.id,
     ip,
-    metadata: { clientType: input.clientType },
+    metadata: { kind: "southwind" },
   });
-  return { company, user };
+  return user;
 }
 
 export async function startKyb(companyId: string, actorId: string, ip?: string | null) {
@@ -60,12 +42,19 @@ export async function startKyb(companyId: string, actorId: string, ip?: string |
   let customerId = company.bridgeCustomerId;
   if (!customerId) {
     const created = await bridge.createCustomer(
-      {
-        type: "business",
-        email: company.email,
-        business_legal_name: company.legalName,
-        client_reference_id: company.id,
-      },
+      company.kind === "persona"
+        ? {
+            type: "individual",
+            email: company.email,
+            first_name: company.legalName,
+            client_reference_id: company.id,
+          }
+        : {
+            type: "business",
+            email: company.email,
+            business_legal_name: company.legalName,
+            client_reference_id: company.id,
+          },
       randomUUID(),
     );
     customerId = created.id;

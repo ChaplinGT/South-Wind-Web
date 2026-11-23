@@ -18,6 +18,16 @@ Este repositorio corre en **sandbox** y, sin clave, en **modo simulado**.
 - Webhook `POST /api/webhooks/bridge` con la verificación de firma de Bridge (`X-Webhook-Signature`, doble SHA-256 y RSA).
 - Claves de idempotencia en los POST que mueven dinero, validación y mensajes de error en español.
 
+## Google
+
+En Google Cloud, credenciales OAuth de tipo aplicación web. URI de redirección autorizados:
+
+- `https://south-wind-portal.vercel.app/api/auth/google/callback`
+- `https://portal.southwindglobalservices.com/api/auth/google/callback`
+- en local, `http://localhost:3000/api/auth/google/callback`
+
+Copie el id y el secreto a `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`. Si no están, el ingreso solo muestra correo y contraseña. El botón es para la cuenta de South Wind, no para abrir un cliente en Bridge.
+
 ## Marca
 
 Los PNG oficiales están en `public/brand/`:
@@ -86,6 +96,8 @@ Vea `.env.example`. Ninguna clave debe commitearse. `BRIDGE_API_KEY` solo se lee
 | `ADMIN_EMAIL` | Opcional. Correo del admin que crea `npm run db:seed` |
 | `ADMIN_PASSWORD` | Opcional. Si está, el seed la aplica y no usa la clave de demo |
 | `SOUTH_WIND_FEE_PERCENT` | Comisión inicial si todavía no hay valor guardado. El panel la puede cambiar |
+| `BOB_MARKUP_PERCENT` | Margen inicial USDT/BOB (0,50). Luego se edita en Comisión |
+| `FX_MARKUP_PERCENT` | Margen inicial de EUR y el resto de monedas (0,10) |
 
 ## Modo simulado
 
@@ -148,6 +160,8 @@ En Vercel el comando de build es `npm run vercel-build`: `prisma generate`, `pri
    | `ADMIN_EMAIL` | correo real del administrador |
    | `ADMIN_PASSWORD` | clave que no sea la de demostración |
    | `SOUTH_WIND_FEE_PERCENT` | `0.50` |
+   | `BOB_MARKUP_PERCENT` | `0.50` (solo el valor inicial) |
+   | `FX_MARKUP_PERCENT` | `0.10` (solo el valor inicial) |
    | `SEED_ON_BUILD` | `true` en el deploy que debe sembrar; `false` después |
 
    `DATABASE_URL` y `DATABASE_URL_UNPOOLED` las pone Neon. No las marque como solo de runtime: `migrate deploy` y, si el flag está activo, el seed corren durante el build y leen esas variables ahí. El seed no imprime contraseñas. Si `ADMIN_EMAIL` no es un correo, el build falla y no escribe ese valor. Después de crear el admin vigente, desactiva cualquier otro usuario con rol admin; si ese correo no es válido y no tiene auditoría asociada, lo elimina.

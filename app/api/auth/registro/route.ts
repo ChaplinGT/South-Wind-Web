@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { clientIp } from "@/lib/audit";
-import { registerCompany } from "@/lib/services/onboarding";
+import { registerAccount } from "@/lib/services/onboarding";
 import { SESSION_COOKIE, sessionCookieOptions, signSession } from "@/lib/session-token";
-import { registerSchema } from "@/lib/validation";
+import { accountSignupSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
   try {
-    const data = registerSchema.parse(await request.json());
-    const { user } = await registerCompany(data, clientIp(request));
+    const data = accountSignupSchema.parse(await request.json());
+    const user = await registerAccount(data, clientIp(request));
     const token = await signSession({
       sub: user.id,
       role: "client",
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       email: user.email,
       name: user.name,
     });
-    const response = NextResponse.json({ ok: true, redirect: "/app/verificacion" });
+    const response = NextResponse.json({ ok: true, redirect: "/app" });
     response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
     return response;
   } catch (error) {

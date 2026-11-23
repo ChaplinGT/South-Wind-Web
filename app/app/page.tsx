@@ -1,74 +1,183 @@
 import Link from "next/link";
-import { KybPill } from "@/components/ui";
 import { prisma } from "@/lib/db";
-import { formatAmount, formatDateShort } from "@/lib/format";
-import { clientTypeLabel, kindLabel, labelOf } from "@/lib/labels";
-import { companyBalance } from "@/lib/services/ledger";
-import { requireClient, requireCompany } from "@/lib/session";
+import { formatAmount, formatDateTime } from "@/lib/format";
+import { getBridge } from "@/lib/bridge";
+import { readUsdcBalance } from "@/lib/chains";
+import { bobReference, eurWithMarkup } from "@/lib/rates";
+import { getBobMarkupPercent, getFxMarkupPercent } from "@/lib/settings";
+import { railsFromEndorsements } from "@/lib/service-rails";
+import { requireUser } from "@/lib/session";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Inicio" };
 
 export default async function DashboardPage() {
-  const session = await requireClient();
-  const company = await requireCompany(session.companyId);
-  const balance = await companyBalance(company.id);
-  const movements = await prisma.ledgerEntry.findMany({
-    where: { companyId: company.id },
-    orderBy: { postedAt: "desc" },
-    take: 5,
+  const session = await requireUser();
+  if (session.role !== "client") return null;
+  const profiles = await prisma.company.findMany({
+    where: { ownerUserId: session.sub },
+    include: { externalWallets: true, virtualAccounts: true },
   });
+  const ids = profiles.map((item) => item.id);
+  const movements = ids.length
+    ? await prisma.ledgerEntry.findMany({
+        where: { companyId: { in: ids } },
+        orderBy: { postedAt: "desc" },
+        take: 20,
+      })
+    : [];
+  const transfers = ids.length ? await prisma.transfer.findMany({ where: { companyId: { in: ids } } }) : [];
+  const transferById = new Map(transfers.map((item) => [item.id, item]));
+  const [bobMarkup, fxMarkup] = await Promise.all([getBobMarkupPercent(), getFxMarkupPercent()]);
+  let bob: Awaited<ReturnType<typeof bobReference>> | null = null;
+  try {
+    bob = await bobReference(Number(bobMarkup));
+  } catch {
+    bob = null;
+  }
+  let eur: { buy: number | null; sell: number | null } = { buy: null, sell: null };
+  let eurAt = new Date().toISOString();
+  try {
+    const quote = await getBridge().getExchangeRate("usd", "eur");
+    eur = eurWithMarkup(quote.buy_rate ?? null, quote.sell_rate ?? null, Number(fxMarkup));
+    eurAt = new Date().toISOString();
+  } catch {
+    eur = { buy: null, sell: null };
+  }
+  const railNotes = await Promise.all(
+    profiles.map(async (profile) => {
+      if (!profile.bridgeCustomerId) return { id: profile.id, rails: [] as string[] };
+      try {
+        const remote = await getBridge().getCustomer(profile.bridgeCustomerId);
+        return { id: profile.id, rails: railsFromEndorsements(remote.endorsements) };
+      } catch {
+        return { id: profile.id, rails: [] as string[] };
+      }
+    }),
+  );
+  const balances = await Promise.all(
+    profiles.flatMap((profile) => {
+      const rows: Promise<{ label: string; text: string }>[] = [];
+      if (profile.bridgeWalletId && profile.bridgeCustomerId) {
+        rows.push(
+          getBridge()
+            .listWallets(profile.bridgeCustomerId)
+            .then((wallets) => {
+              const match = wallets.data.find((item) => item.id === profile.bridgeWalletId);
+              const amount = match?.balances.find((item) => item.currency === "usdc")?.balance;
+              return { label: `Billetera Bridge · ${profile.kind}`, text: amount ? `${amount} USDC` : "Saldo no disponible" };
+            })
+            .catch(() => ({ label: `Billetera Bridge · ${profile.kind}`, text: "Saldo no disponible" })),
+        );
+      }
+      for (const wallet of profile.externalWallets) {
+        rows.push(
+          readUsdcBalance(wallet.network, wallet.address).then((result) => ({
+            label: `${wallet.network} · ${wallet.address.slice(0, 8)}…`,
+            text: result.available ? `${result.amount} USDC` : result.reason,
+          })),
+        );
+      }
+      return rows;
+    }),
+  );
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm text-teal-900/70">{labelOf(clientTypeLabel, company.clientType)} · NIT {company.nit}</p>
-        <h1 className="font-display text-4xl">{company.tradeName}</h1>
+        <h1 className="font-display text-4xl">Hola, {session.name.split(" ")[0]}</h1>
+        <p className="mt-1 text-sm text-teal-900/70">Su cuenta South Wind. Los servicios de Bridge se habilitan desde aquí.</p>
       </div>
-      {company.kybStatus !== "approved" ? (
-        <div className="rounded-3xl bg-amber-50 px-5 py-4 text-sm">
-          Su verificación está {company.kybStatus === "pending" ? "pendiente" : "en curso"}.{" "}
-          <Link className="font-semibold text-teal-800" href="/app/verificacion">Continuar</Link>
-        </div>
-      ) : null}
-      <section className="overflow-hidden rounded-[2rem] bg-teal-800 text-white">
-        <div className="px-6 py-7">
-          <p className="text-sm text-white/70">Saldo disponible</p>
-          <p className="mt-2 font-display text-5xl">{formatAmount(balance)}</p>
-          <p className="mt-3 max-w-lg text-sm text-white/75">Cuenta en USDC. Los dólares que recibe se acreditan aquí. La conversión a bolivianos se solicita aparte.</p>
-          <div className="mt-6 flex flex-wrap gap-2">
-            <Link className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-teal-900" href="/app/enviar">Enviar pago</Link>
-            <Link className="rounded-full px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/40" href="/app/conversiones">Solicitar conversión</Link>
-            <Link className="rounded-full px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/40" href="/app/cuenta">Ver cuenta virtual</Link>
+      <section className="grid gap-4 md:grid-cols-2">
+        <article className="card">
+          <p className="text-xs uppercase tracking-wide text-teal-800">Referencia USDC/BOB</p>
+          <p className="mt-1 text-xs text-teal-900/60">USDC se muestra a la par de USDT. Fuente: {bob?.source ?? "Binance P2P"} · margen {bobMarkup} %</p>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div><p className="text-sm text-teal-900/60">Compra</p><p className="font-display text-3xl">{bob?.compra ? bob.compra.toFixed(2) : "—"}</p></div>
+            <div><p className="text-sm text-teal-900/60">Venta</p><p className="font-display text-3xl">{bob?.venta ? bob.venta.toFixed(2) : "—"}</p></div>
           </div>
+          <p className="mt-2 text-xs text-teal-900/50">{bob ? formatDateTime(bob.at) : "No se pudo leer Binance P2P."}</p>
+        </article>
+        <article className="card">
+          <p className="text-xs uppercase tracking-wide text-teal-800">USD/EUR · Bridge</p>
+          <p className="mt-1 text-xs text-teal-900/60">buy_rate y sell_rate de Bridge, más el margen South Wind de {fxMarkup} % para EUR y el resto de monedas distintas de BOB.</p>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div><p className="text-sm text-teal-900/60">Compra EUR</p><p className="font-display text-3xl">{eur.buy ? eur.buy.toFixed(4) : "—"}</p></div>
+            <div><p className="text-sm text-teal-900/60">Venta EUR</p><p className="font-display text-3xl">{eur.sell ? eur.sell.toFixed(4) : "—"}</p></div>
+          </div>
+          <p className="mt-2 text-xs text-teal-900/50">{formatDateTime(eurAt)} · Bridge</p>
+        </article>
+      </section>
+      <section className="grid gap-4 md:grid-cols-2">
+        <article className="card space-y-3">
+          <h2 className="font-display text-2xl">Pagos transfronterizos</h2>
+          {profiles.length === 0 ? <p className="text-sm">Todavía no hay un perfil de persona ni de empresa.</p> : null}
+          {profiles.map((profile) => {
+            const rails = railNotes.find((item) => item.id === profile.id)?.rails ?? [];
+            return (
+              <div key={profile.id}>
+                <p className="font-semibold">{profile.kind === "persona" ? "Persona" : "Empresa"} · {profile.legalName}</p>
+                <p className="text-sm text-teal-900/70">{rails.length ? rails.join(" · ") : "Sin rieles habilitados"} · verificación {profile.kybStatus}</p>
+              </div>
+            );
+          })}
+          <Link className="btn-primary" href="/app/servicios/pagos">Habilitar o continuar</Link>
+        </article>
+        <article className="card space-y-3">
+          <h2 className="font-display text-2xl">Remesas transfronterizas</h2>
+          <p className="text-sm text-teal-900/70">Cuentas virtuales para recibir y convertir a USDC en su billetera.</p>
+          {profiles.flatMap((profile) => profile.virtualAccounts).map((account) => (
+            <p key={account.id} className="text-sm">{account.currency.toUpperCase()} · {account.status}</p>
+          ))}
+          <Link className="btn-secondary" href="/app/servicios/remesas">Abrir cuenta virtual</Link>
+        </article>
+      </section>
+      <section className="overflow-hidden rounded-[2rem] bg-teal-800 px-6 py-6 text-white">
+        <p className="text-sm text-white/70">Acciones</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-teal-900" href="/app/enviar">Enviar pago</Link>
+          <Link className="rounded-full px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/40" href="/app/conversiones">Solicitar conversión</Link>
+          <Link className="rounded-full px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/40" href="/app/cuenta">Ver cuenta virtual</Link>
         </div>
       </section>
-      <section className="grid gap-4 lg:grid-cols-[1fr_280px]">
-        <div className="card">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-2xl">Últimos movimientos</h2>
-            <Link className="text-sm font-semibold text-teal-800" href="/app/movimientos">Ver todos</Link>
-          </div>
-          <div className="divide-y divide-teal-100">
-            {movements.map((movement) => (
-              <div key={movement.id} className="flex items-start justify-between gap-3 py-3 text-sm">
+      <section className="card">
+        <h2 className="font-display text-2xl">Saldos</h2>
+        <ul className="mt-3 space-y-2 text-sm">
+          {balances.length === 0 ? <li>Saldo no disponible hasta que registre una billetera Bridge o externa.</li> : null}
+          {balances.map((item) => <li key={item.label}><span className="font-semibold">{item.label}.</span> {item.text}</li>)}
+        </ul>
+      </section>
+      <section className="card">
+        <h2 className="font-display text-2xl">Últimos 20 movimientos</h2>
+        <div className="mt-3 divide-y divide-teal-50">
+          {movements.map((entry) => {
+            const transfer = entry.transferId ? transferById.get(entry.transferId) : undefined;
+            const hash = transfer ? txHash(transfer.responseJson) : null;
+            return (
+              <div key={entry.id} className="flex flex-wrap items-start justify-between gap-2 py-3 text-sm">
                 <div>
-                  <p className="font-medium">{movement.description}</p>
-                  <p className="text-xs text-teal-900/60">{formatDateShort(movement.postedAt)} · {movement.reference} · {labelOf(kindLabel, movement.kind)}</p>
+                  <p className="font-medium">{transfer?.beneficiaryName || entry.description}</p>
+                  <p className="text-xs text-teal-900/60">{formatDateTime(entry.postedAt)} · {entry.reference} · {transfer?.state || entry.kind}</p>
                 </div>
-                <p className={movement.credit !== "0.00" ? "font-semibold text-emerald-700" : "font-semibold"}>
-                  {movement.credit !== "0.00" ? `+${formatAmount(movement.credit)}` : `−${formatAmount(movement.debit)}`}
-                </p>
+                <div className="text-right">
+                  <p className="font-semibold">{entry.credit !== "0.00" ? formatAmount(entry.credit) : formatAmount(entry.debit)}</p>
+                  {transfer ? <a className="text-xs font-semibold text-teal-800" href={`/api/comprobantes/pago/${transfer.id}`}>Comprobante</a> : null}
+                  {hash ? <p className="text-xs break-all text-teal-900/60">{hash}</p> : null}
+                </div>
               </div>
-            ))}
-            {movements.length === 0 ? <p className="text-sm text-teal-900/70">Todavía no hay movimientos.</p> : null}
-          </div>
+            );
+          })}
+          {movements.length === 0 ? <p className="py-3 text-sm text-teal-900/70">Cuando habilite un servicio, los movimientos aparecerán aquí.</p> : null}
         </div>
-        <aside className="card h-fit space-y-3">
-          <h2 className="font-display text-2xl">Empresa</h2>
-          <p className="text-sm">{company.legalName}</p>
-          <KybPill status={company.kybStatus} />
-          <p className="text-sm text-teal-900/70">{company.city}, Bolivia</p>
-        </aside>
       </section>
     </div>
   );
+}
+
+function txHash(raw: string): string | null {
+  try {
+    const body = JSON.parse(raw) as { destination_tx_hash?: string; receipt?: { destination_tx_hash?: string } };
+    return body.destination_tx_hash || body.receipt?.destination_tx_hash || null;
+  } catch {
+    return null;
+  }
 }

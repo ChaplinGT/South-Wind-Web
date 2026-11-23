@@ -15,16 +15,18 @@ const items = [
   { href: "/app/movimientos", label: "Movimientos" },
   { href: "/app/extractos", label: "Extractos" },
   { href: "/app/verificacion", label: "Verificación" },
+  { href: "/app/perfil", label: "Perfil" },
 ];
 
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
   const session = await readSession();
   if (!session) redirect("/api/auth/logout");
-  if (session.role !== "client" || !session.companyId) redirect("/admin");
-  const company = await prisma.company.findUnique({ where: { id: session.companyId } });
-  if (!company) redirect("/ingresar");
+  if (session.role !== "client") redirect("/admin");
+  const company = session.companyId
+    ? await prisma.company.findUnique({ where: { id: session.companyId } })
+    : null;
   return (
-    <PortalShell items={items} user={{ name: company.tradeName, email: session.email }} eyebrow="Su cuenta" mock={isMockMode()}>
+    <PortalShell items={items} user={{ name: company?.tradeName || session.name, email: session.email }} eyebrow="Su cuenta" mock={isMockMode()}>
       {children}
     </PortalShell>
   );

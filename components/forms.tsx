@@ -45,20 +45,12 @@ export function RegisterForm() {
     form.setFields({});
     try {
       const result = await postJson("/api/auth/registro", {
-        contactName: data.get("contactName"),
+        name: data.get("name"),
         email: data.get("email"),
-        password: data.get("password"),
-        legalName: data.get("legalName"),
-        tradeName: data.get("tradeName"),
-        nit: data.get("nit"),
         phone: data.get("phone"),
-        city: data.get("city"),
-        address: data.get("address"),
-        clientType: data.get("clientType"),
-        acceptTerms: data.get("acceptTerms") === "on",
-        acceptConversion: data.get("acceptConversion") === "on",
+        password: data.get("password"),
       });
-      router.push(result.redirect || "/app/verificacion");
+      router.push(result.redirect || "/app");
       router.refresh();
     } catch (error) {
       const known = error as Error & { fields?: FieldErrors };
@@ -69,42 +61,22 @@ export function RegisterForm() {
     }
   }
   return (
-    <form onSubmit={onSubmit} className="grid gap-4">
+    <form onSubmit={onSubmit} className="grid gap-3">
       {form.error ? <Alert tone="bad">{form.error}</Alert> : null}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="sm:col-span-2"><span className="label">Persona de contacto</span><input className="input" name="contactName" required /><FieldError message={form.fields.contactName} /></label>
-        <label><span className="label">Correo</span><input className="input" name="email" type="email" required /><FieldError message={form.fields.email} /></label>
-        <label><span className="label">Contraseña</span><input className="input" name="password" type="password" required /><FieldError message={form.fields.password} /></label>
-        <label><span className="label">Razón social</span><input className="input" name="legalName" required /><FieldError message={form.fields.legalName} /></label>
-        <label><span className="label">Nombre comercial</span><input className="input" name="tradeName" required /><FieldError message={form.fields.tradeName} /></label>
-        <label><span className="label">NIT</span><input className="input" name="nit" inputMode="numeric" required /><FieldError message={form.fields.nit} /></label>
-        <label><span className="label">Teléfono</span><input className="input" name="phone" required /><FieldError message={form.fields.phone} /></label>
-        <label><span className="label">Ciudad</span><input className="input" name="city" required /><FieldError message={form.fields.city} /></label>
-        <label><span className="label">Dirección</span><input className="input" name="address" required /><FieldError message={form.fields.address} /></label>
-      </div>
-      <fieldset>
-        <legend className="label">Tipo de empresa</legend>
-        <div className="grid gap-2 sm:grid-cols-3">
-          {[
-            ["importador", "Importador", "Pago a proveedores del exterior"],
-            ["cuenta_eeuu", "Cuenta en EE.UU.", "Bolivianos hacia su cuenta americana"],
-            ["exportador", "Exportador", "Recibo dólares y convierto"],
-          ].map(([value, title, text]) => (
-            <label key={value} className="rounded-2xl border border-teal-200 p-3 text-sm has-[:checked]:border-teal-800 has-[:checked]:bg-teal-50">
-              <input className="mr-2" type="radio" name="clientType" value={value} required />
-              <span className="font-semibold">{title}</span>
-              <span className="mt-1 block text-xs text-teal-900/70">{text}</span>
-            </label>
-          ))}
-        </div>
-        <FieldError message={form.fields.clientType} />
-      </fieldset>
-      <label className="flex gap-2 text-sm"><input type="checkbox" name="acceptTerms" /> Acepto las condiciones de uso (borrador pendiente de revisión legal).</label>
-      <FieldError message={form.fields.acceptTerms} />
-      <label className="flex gap-2 text-sm"><input type="checkbox" name="acceptConversion" /> Entiendo que la conversión entre USDC y bolivianos es una solicitud atendida fuera de la plataforma, no un riel automático.</label>
-      <FieldError message={form.fields.acceptConversion} />
-      <button className="btn-primary" disabled={form.pending} type="submit">{form.pending ? "Creando cuenta…" : "Crear cuenta"}</button>
+      <label><span className="label">Nombre</span><input className="input" name="name" required /><FieldError message={form.fields.name} /></label>
+      <label><span className="label">Correo</span><input className="input" name="email" type="email" required /><FieldError message={form.fields.email} /></label>
+      <label><span className="label">Teléfono</span><input className="input" name="phone" required /><FieldError message={form.fields.phone} /></label>
+      <label><span className="label">Contraseña</span><input className="input" name="password" type="password" required /><FieldError message={form.fields.password} /></label>
+      <button className="btn-primary" disabled={form.pending} type="submit">{form.pending ? "Creando cuenta…" : "Crear cuenta South Wind"}</button>
     </form>
+  );
+}
+
+export function GoogleButton() {
+  return (
+    <a className="btn-secondary w-full" href="/api/auth/google">
+      Continuar con Google
+    </a>
   );
 }
 
@@ -434,6 +406,40 @@ export function FeeForm({ feePercent }: { feePercent: string }) {
         <p className="help">Valor de referencia del MVP. No es la tarifa comercial definitiva. Se envía a Bridge como developer_fee.</p>
       </label>
       <button className="btn-primary" disabled={form.pending} type="submit">Guardar comisión</button>
+    </form>
+  );
+}
+
+export function MarkupForm({ bob, fx }: { bob: string; fx: string }) {
+  const form = useFormError();
+  const router = useRouter();
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    form.setPending(true);
+    form.setError(null);
+    try {
+      await postJson("/api/admin/tasas", Object.fromEntries(new FormData(event.currentTarget).entries()));
+      router.refresh();
+    } catch (error) {
+      form.setError((error as Error).message);
+    } finally {
+      form.setPending(false);
+    }
+  }
+  return (
+    <form onSubmit={onSubmit} className="card max-w-lg space-y-3">
+      {form.error ? <Alert tone="bad">{form.error}</Alert> : null}
+      <label>
+        <span className="label">Margen USDT/BOB (%)</span>
+        <input className="input" name="bobMarkupPercent" defaultValue={bob} />
+        <p className="help">Se suma al precio de compra de Binance y se resta al de venta. Valor inicial 0,50 %.</p>
+      </label>
+      <label>
+        <span className="label">Margen del resto de monedas (%)</span>
+        <input className="input" name="fxMarkupPercent" defaultValue={fx} />
+        <p className="help">EUR y cualquier moneda distinta de BOB: se suma al buy_rate de Bridge y se resta al sell_rate. Valor inicial 0,10 %.</p>
+      </label>
+      <button className="btn-primary" disabled={form.pending} type="submit">Guardar márgenes</button>
     </form>
   );
 }

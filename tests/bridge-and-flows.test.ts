@@ -10,6 +10,9 @@ import { periodBounds } from "@/lib/format";
 import { compileStatement } from "@/lib/statements/build";
 import { renderStatementPdf } from "@/lib/statements/pdf";
 import { isValidEmail, otherAdminAction, resolveAdminEmail } from "@/lib/admin-seed";
+import { decodeHexQuantity, encodeBalanceOf, formatToken } from "@/lib/chains";
+import { applySpread, averageNearMedian, pricesFromBinanceBody } from "@/lib/rates";
+import { railsFromEndorsements } from "@/lib/service-rails";
 import { appUrl, isMockMode } from "@/lib/env";
 import { registerSchema } from "@/lib/validation";
 
@@ -194,6 +197,27 @@ describe("extractos, comisiones y validación", () => {
     expect(statement.totalCredits).toBe("18000.00");
     expect(statement.closingBalance).toBe("31643.50");
     expect(statement.lines.at(-1)?.balance).toBe("31643.50");
+  });
+
+  it("arma la referencia USDC/BOB y los rieles", () => {
+    const prices = pricesFromBinanceBody({
+      data: [
+        { adv: { price: "6.90", classify: "mass" } },
+        { adv: { price: "6.91", privilegeType: "promoted" } },
+        { adv: { price: "9.50", classify: "mass" } },
+        { adv: { price: "6.88", classify: "mass" } },
+      ],
+    });
+    expect(prices).toEqual([6.9, 9.5, 6.88]);
+    expect(averageNearMedian([6.9, 9.5, 6.88])).toBeCloseTo((6.9 + 6.88) / 2, 5);
+    expect(applySpread(10, 0.5, "add")).toBeCloseTo(10.05, 5);
+    expect(applySpread(10, 0, "sub")).toBe(10);
+    expect(railsFromEndorsements([{ name: "base", status: "approved" }, { name: "sepa", status: "incomplete" }])).toEqual([
+      "ACH mismo día",
+      "Wire",
+    ]);
+    expect(encodeBalanceOf("0x00000000000000000000000000000000000000aa")).toMatch(/^0x70a08231/);
+    expect(formatToken(decodeHexQuantity("0x0f4240"), 6)).toBe("1.00");
   });
 
   it("calcula la comisión de referencia", () => {

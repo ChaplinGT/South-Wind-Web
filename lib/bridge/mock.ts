@@ -285,6 +285,11 @@ export class MockBridge implements BridgeClient {
     return body;
   }
 
+  async getExchangeRate() {
+    await this.hydrate();
+    return { midmarket_rate: "0.9200", buy_rate: "0.9250", sell_rate: "0.9150" };
+  }
+
   async listCustomers(params?: { limit?: number }) {
     await this.hydrate();
     const data = this.store.customers.slice(0, params?.limit ?? this.store.customers.length);
@@ -387,6 +392,15 @@ export class MockBridge implements BridgeClient {
       beneficiary: owner.first_name || "Cliente South Wind",
     });
     created.developer_fee_percent = String(input.developer_fee_percent ?? "0.50");
+    const source = (input.source ?? {}) as { currency?: string };
+    const currency = String(source.currency || "usd");
+    if (currency !== "usd") {
+      created.source_deposit_instructions = {
+        ...created.source_deposit_instructions,
+        currency,
+        payment_rails: currency === "eur" ? ["sepa"] : currency === "brl" ? ["pix"] : currency === "mxn" ? ["spei"] : ["ach_push"],
+      };
+    }
     this.store.virtualAccounts.push(created);
     return (await this.storeIdempotency(idempotencyKey, hash, created)) as BridgeVirtualAccount;
   }

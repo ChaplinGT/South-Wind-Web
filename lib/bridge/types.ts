@@ -149,4 +149,5 @@ export interface BridgeClient {
     input: { amount: string },
     idempotencyKey: string,
   ): Promise<Record<string, unknown>>;
+  getExchangeRate(from: string, to: string): Promise<{ buy_rate?: string; sell_rate?: string; midmarket_rate?: string }>;
 }

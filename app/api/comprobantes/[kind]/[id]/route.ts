@@ -27,7 +27,7 @@ export async function GET(_request: Request, context: { params: Promise<{ kind: 
         title: "Comprobante de pago",
         number: transfer.reference,
         issuedAt: transfer.createdAt,
-        company: { legalName: transfer.company.legalName, nit: transfer.company.nit },
+        company: { legalName: transfer.company.legalName, nit: transfer.company.nit || "—" },
         amountLabel: "Total debitado de USDC",
         amount: formatAmount(transfer.totalDebit),
         rows: [
@@ -53,7 +53,7 @@ export async function GET(_request: Request, context: { params: Promise<{ kind: 
         title: "Comprobante de conversión",
         number: conversion.reference || conversion.id.slice(-8).toUpperCase(),
         issuedAt: conversion.updatedAt,
-        company: { legalName: conversion.company.legalName, nit: conversion.company.nit },
+        company: { legalName: conversion.company.legalName, nit: conversion.company.nit || "—" },
         amountLabel: "Monto de la solicitud",
         amount: formatAmount(conversion.amount, conversion.sourceCurrency),
         rows: [

@@ -22,7 +22,8 @@ export const legalEntity = {
   shortName: "South Wind",
   jurisdiction: "Montana, Estados Unidos",
   addressLines: [
-    "Domicilio registrado: [completar dirección en Montana]",
-    "Montana, Estados Unidos",
+    "1001 S. Main Street, STE 500",
+    "Kalispell, MT 59901",
+    "Flathead County, Montana, Estados Unidos",
   ],
 } as const;

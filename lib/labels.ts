@@ -2,6 +2,7 @@ export const clientTypeLabel: Record<string, string> = {
   importador: "Importador",
   cuenta_eeuu: "Empresa con cuenta en EE.UU.",
   exportador: "Exportador",
+  persona: "Persona",
 };
 
 export const kybLabel: Record<string, string> = {
@@ -60,6 +61,7 @@ export const auditActionLabel: Record<string, string> = {
   "kyb.approved": "Verificación aprobada",
   "statement.generate": "Extracto generado",
   "fee.update": "Comisión actualizada",
+  "markup.update": "Márgenes de tipo de cambio actualizados",
   "deposit.simulated": "Depósito simulado",
   "webhook.processed": "Evento de Bridge procesado",
 };

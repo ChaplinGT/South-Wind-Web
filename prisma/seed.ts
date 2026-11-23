@@ -33,11 +33,14 @@ function instructions(company: DemoCompany) {
 }
 
 async function main() {
-  await prisma.setting.upsert({
-    where: { key: "feePercent" },
-    update: {},
-    create: { key: "feePercent", value: process.env.SOUTH_WIND_FEE_PERCENT || "0.50" },
-  });
+  const defaults: [string, string][] = [
+    ["feePercent", process.env.SOUTH_WIND_FEE_PERCENT || "0.50"],
+    ["bobMarkupPercent", process.env.BOB_MARKUP_PERCENT || "0.50"],
+    ["fxMarkupPercent", process.env.FX_MARKUP_PERCENT || process.env.EUR_MARKUP_PERCENT || "0.10"],
+  ];
+  for (const [key, value] of defaults) {
+    await prisma.setting.upsert({ where: { key }, update: {}, create: { key, value } });
+  }
 
   const adminEmail = resolveAdminEmail(process.env.ADMIN_EMAIL);
   const adminPassword = process.env.ADMIN_PASSWORD || DEMO_PASSWORD;
@@ -118,17 +121,20 @@ async function main() {
         kybStatus: "approved",
         bridgeKycStatus: "active",
         onboardingSource: "invited",
+        kind: "empresa",
       },
     });
-    await prisma.user.create({
+    const owner = await prisma.user.create({
       data: {
         email: company.email,
         passwordHash: clientPasswordHash,
         name: company.contactName,
+        phone: company.phone,
         role: "client",
         companyId: row.id,
       },
     });
+    await prisma.company.update({ where: { id: row.id }, data: { ownerUserId: owner.id, kind: "empresa" } });
     const bob = await prisma.bolivianAccount.create({
       data: { companyId: row.id, ...company.bob, isDefault: true },
     });

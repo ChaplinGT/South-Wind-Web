@@ -30,7 +30,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       periodEnd: statement.periodEnd,
       company: {
         legalName: statement.company.legalName,
-        nit: statement.company.nit,
+        nit: statement.company.nit || "—",
         address: statement.company.address,
         city: statement.company.city,
       },

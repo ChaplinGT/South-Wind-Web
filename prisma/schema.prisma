@@ -14,12 +14,15 @@ datasource db {
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
-  passwordHash String
+  passwordHash String?
+  phone        String?
+  googleSub    String?    @unique
   name         String
   role         String
   active       Boolean    @default(true)
   companyId    String?
-  company      Company?   @relation(fields: [companyId], references: [id])
+  company      Company?   @relation("ActiveCompany", fields: [companyId], references: [id])
+  ownedProfiles Company[] @relation("ProfileOwner")
   createdAt    DateTime   @default(now())
   auditLogs    AuditLog[]
 }
@@ -28,7 +31,7 @@ model Company {
   id               String   @id @default(cuid())
   legalName        String
   tradeName        String
-  nit              String   @unique
+  nit              String?  @unique
   email            String
   phone            String
   address          String
@@ -45,10 +48,15 @@ model Company {
   kybLinkUrl       String?
   tosLinkUrl       String?
   onboardingSource String
+  ownerUserId      String?
+  owner            User?    @relation("ProfileOwner", fields: [ownerUserId], references: [id])
+  kind             String   @default("empresa")
+  fundingMode      String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  users            User[]
+  users            User[]   @relation("ActiveCompany")
+  externalWallets  ExternalWallet[]
   beneficiaries    Beneficiary[]
   virtualAccounts  VirtualAccount[]
   transfers        Transfer[]
@@ -56,6 +64,18 @@ model Company {
   bolivianAccounts BolivianAccount[]
   ledgerEntries    LedgerEntry[]
   statements       Statement[]
+
+  @@unique([ownerUserId, kind])
+}
+
+model ExternalWallet {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  address   String
+  network   String
+  label     String?
+  createdAt DateTime @default(now())
 }
 
 model BolivianAccount {
